@@ -1,0 +1,89 @@
+name: Deploy
+
+# Release:  git tag v1.0.0 && git push origin v1.0.0
+# Redeploy an existing version: Actions → Deploy → Run workflow → tag
+on:
+  push:
+    tags: ["v*"]
+  workflow_dispatch:
+    inputs:
+      tag:
+        description: "Version tag to deploy (e.g. v1.0.0)"
+        required: true
+
+concurrency:
+  group: deploy-production
+  cancel-in-progress: false
+
+permissions:
+  contents: read
+  packages: write
+
+env:
+  TAG: ${{ github.event.inputs.tag || github.ref_name }}
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  images:
+    needs: ci
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - uses: docker/setup-buildx-action@v3
+      - uses: docker/login-action@v3
+        with:
+          registry: ghcr.io
+          username: ${{ github.actor }}
+          password: ${{ secrets.GITHUB_TOKEN }}
+      - name: Image owner (lowercase)
+        run: echo "OWNER=${GITHUB_REPOSITORY_OWNER,,}" >> "$GITHUB_ENV"
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/api.Dockerfile
+          push: true
+          tags: ghcr.io/${{ env.OWNER }}/smartmarket-api:${{ env.TAG }}
+          cache-from: type=gha,scope=api
+          cache-to: type=gha,mode=max,scope=api
+      - uses: docker/build-push-action@v6
+        with:
+          context: .
+          file: infrastructure/docker/web.Dockerfile
+          push: true
+          tags: ghcr.io/${{ env.OWNER }}/smartmarket-web:${{ env.TAG }}
+          cache-from: type=gha,scope=web
+          cache-to: type=gha,mode=max,scope=web
+
+  deploy:
+    needs: images
+    runs-on: ubuntu-latest
+    # Configure required reviewers on this environment to get a manual "approve" step.
+    environment: production
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          ref: ${{ env.TAG }}
+      - name: SSH key
+        run: |
+          install -m 700 -d ~/.ssh
+          echo "${{ secrets.VPS_SSH_KEY }}" > ~/.ssh/id_ed25519
+          chmod 600 ~/.ssh/id_ed25519
+          echo "${{ secrets.VPS_KNOWN_HOSTS }}" > ~/.ssh/known_hosts
+      - name: Copy stack files
+        run: |
+          scp -P "${{ secrets.VPS_PORT || 22 }}" \
+            infrastructure/deploy/docker-compose.prod.yml infrastructure/deploy/Caddyfile \
+            infrastructure/deploy/deploy.sh infrastructure/scripts/backup.sh \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/smartmarket/"
+          scp -P "${{ secrets.VPS_PORT || 22 }}" infrastructure/deploy/db-init/01-app-role.sh \
+            "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}:/opt/smartmarket/db-init/"
+      - name: Deploy
+        run: |
+          ssh -p "${{ secrets.VPS_PORT || 22 }}" "${{ secrets.VPS_USER }}@${{ secrets.VPS_HOST }}" \
+            "cd /opt/smartmarket && chmod +x deploy.sh db-init/01-app-role.sh && \
+             echo '${{ secrets.GITHUB_TOKEN }}' | docker login ghcr.io -u '${{ github.actor }}' --password-stdin && \
+             ./deploy.sh '${{ env.TAG }}'"

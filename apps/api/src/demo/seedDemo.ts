@@ -179,7 +179,6 @@ export async function seedDemo(prisma: PrismaClient, opts: { now?: Date; quiet?:
   // ── collectors ──────────────────────────────────────────────────────────
   const payments: Prisma.PaymentCreateManyInput[] = [];
   const receipts: Prisma.ReceiptCreateManyInput[] = [];
-  const providerTxns: Prisma.PaymentProviderTransactionCreateManyInput[] = [];
   const cancellations: Prisma.PaymentCancellationCreateManyInput[] = [];
   const audits: Prisma.AuditLogCreateManyInput[] = [];
   const shifts: Prisma.CashierShiftCreateManyInput[] = [];
@@ -212,35 +211,34 @@ export async function seedDemo(prisma: PrismaClient, opts: { now?: Date; quiet?:
     return id;
   };
 
-  const methodPick = (): PaymentMethod => {
-    const x = rand();
-    return x < 0.6 ? 'CASH' : x < 0.76 ? 'PAYME' : x < 0.9 ? 'CLICK' : 'UZUM';
-  };
+  // Collectors take cash or a Click transfer (recorded with its check number) on the spot.
+  const methodPick = (): PaymentMethod => (rand() < 0.7 ? 'CASH' : 'CLICK');
+  let clickSeq = 0;
 
-  type PayOpts = { space: Space; at: Date; method?: PaymentMethod; status?: 'SUCCESS' | 'PENDING_SYNC' | 'FAILED' | 'CANCELLED'; cancelAt?: Date; cancelReason?: string };
+  type PayOpts = { space: Space; at: Date; method?: PaymentMethod; status?: 'SUCCESS' | 'CANCELLED'; cancelAt?: Date; cancelReason?: string; verification?: 'PENDING' | 'VERIFIED' | 'MISMATCH' };
   const addPayment = (o: PayOpts) => {
     const method = o.method ?? methodPick();
     const status = o.status ?? 'SUCCESS';
     const id = randomUUID();
-    const cashierId = method === 'CASH' ? cashierForRow[o.space.rowCode] : null;
-    const confirmed = status === 'SUCCESS' || status === 'CANCELLED';
+    const cashierId = cashierForRow[o.space.rowCode];
+    const isClick = method === 'CLICK';
+    // Older Click payments are already reconciled; today's wait for the statement.
+    const verification = !isClick ? 'NOT_REQUIRED' : o.verification ?? (o.at < todayStart ? 'VERIFIED' : 'PENDING');
+    const externalRef = isClick ? `DEMO${String(4_100_000 + ++clickSeq)}` : null;
     payments.push({
-      id, spaceId: o.space.id, cashierId, shiftId: cashierId ? shiftFor(cashierId, o.at) : null, cycleId: cycle.id,
+      id, spaceId: o.space.id, cashierId, shiftId: shiftFor(cashierId, o.at), cycleId: cycle.id,
       method, status, amount: TARIFF_AMOUNT,
-      validFrom: confirmed ? o.at : null, validUntil: confirmed ? endOfLocalDay(o.at, OFF) : null, paidAt: confirmed ? o.at : null,
-      idempotencyKey: randomUUID(), isSimulated: method !== 'CASH', isDemo: true, createdAt: o.at, updatedAt: o.cancelAt ?? o.at,
-      note: method !== 'CASH' ? "DEMO simulyatsiya — haqiqiy provayder to'lovi emas" : null,
+      validFrom: o.at, validUntil: endOfLocalDay(o.at, OFF), paidAt: o.at,
+      externalRef, verification,
+      verifiedById: verification === 'VERIFIED' || verification === 'MISMATCH' ? admin.id : null,
+      verifiedAt: verification === 'VERIFIED' || verification === 'MISMATCH' ? new Date(o.at.getTime() + 20 * HOUR) : null,
+      verificationNote: verification === 'MISMATCH' ? "Click ko'chirmasida bunday chek yo'q (DEMO)" : null,
+      idempotencyKey: randomUUID(), isDemo: true, createdAt: o.at, updatedAt: o.cancelAt ?? o.at,
     });
-    if (method !== 'CASH') {
-      providerTxns.push({
-        id: randomUUID(), paymentId: id, provider: method, providerTxnId: `DEMO-${method}-${randomUUID()}`,
-        state: status === 'CANCELLED' ? 'SUCCESS' : status, signatureValid: true, isSimulated: true, payload: { simulated: true }, createdAt: o.at,
-      });
-    }
     audits.push({
-      actorId: cashierId, actorRole: cashierId ? 'CASHIER' : 'SYSTEM',
-      action: method === 'CASH' ? 'PAYMENT_CREATED' : 'PAYMENT_PROVIDER_CALLBACK', entityType: 'Payment', entityId: id,
-      summary: method === 'CASH' ? `Naqd to'lov ${TARIFF_AMOUNT} UZS, joy ${o.space.number}` : `${method} callback: ${status === 'CANCELLED' ? 'SUCCESS' : status} (DEMO)`,
+      actorId: cashierId, actorRole: 'CASHIER',
+      action: 'PAYMENT_CREATED', entityType: 'Payment', entityId: id,
+      summary: `${isClick ? `Click (${externalRef})` : 'Naqd'} to'lov ${TARIFF_AMOUNT} UZS, joy ${o.space.number}`,
       isDemo: true, createdAt: o.at,
     });
     if (status === 'CANCELLED' && o.cancelAt) {
@@ -255,14 +253,14 @@ export async function seedDemo(prisma: PrismaClient, opts: { now?: Date; quiet?:
         resolutionNote: "Ma'lumot uchun hodisa", isDemo: true, createdAt: o.cancelAt,
       });
     }
-    if (confirmed) {
-      const c = cashierId ? DEMO_USERS.find((u) => users[u.username].id === cashierId) : null;
+    {
+      const c = DEMO_USERS.find((u) => users[u.username].id === cashierId);
       receipts.push({
         id: randomUUID(), paymentId: id, receiptNumber: '', publicToken: token(16), issuedAt: o.at,
         content: {
           marketName: market.name, marketAddress: market.address, spaceNumber: o.space.number, rowName: o.space.rowName,
-          amount: TARIFF_AMOUNT, currency: 'UZS', method, cashierName: c?.fullName ?? null, paidAt: o.at.toISOString(),
-          validUntil: endOfLocalDay(o.at, OFF).toISOString(), cycleName: cycle.name, simulated: method !== 'CASH', demo: true,
+          amount: TARIFF_AMOUNT, currency: 'UZS', method, externalRef, cashierName: c?.fullName ?? null, paidAt: o.at.toISOString(),
+          validUntil: endOfLocalDay(o.at, OFF).toISOString(), cycleName: cycle.name, demo: true,
           footer: SETTING_DEFAULTS['receipt.footerText'].value,
         },
       });
@@ -294,9 +292,8 @@ export async function seedDemo(prisma: PrismaClient, opts: { now?: Date; quiet?:
       if (roll < 0.012) {
         addPayment({ space: s, at, status: 'CANCELLED', cancelAt: new Date(at.getTime() + between(20, 90) * MIN), cancelReason: pick(cancelReasons) });
         addPayment({ space: s, at: new Date(at.getTime() + 2 * HOUR), method: 'CASH' });
-      } else if (roll < 0.02) {
-        addPayment({ space: s, at, method: pick(['PAYME', 'CLICK', 'UZUM'] as const), status: 'FAILED' });
-        addPayment({ space: s, at: new Date(at.getTime() + 5 * MIN), method: 'CASH' });
+      } else if (roll < 0.016) {
+        addPayment({ space: s, at, method: 'CLICK', verification: 'MISMATCH' });
       } else addPayment({ space: s, at });
     }
     // unpaid-occupancy alerts that were handled that day
@@ -417,8 +414,6 @@ export async function seedDemo(prisma: PrismaClient, opts: { now?: Date; quiet?:
       const paidAt = new Date(det.getTime() - 2 * HOUR);
       addPayment({ space: s, at: paidAt, method: 'CASH', status: 'CANCELLED', cancelAt: new Date(det.getTime() - 5 * MIN), cancelReason: "Kassir noto'g'ri joyni tanlagan — boshqa joyga qayta kiritiladi" });
     }
-    if (i === 3) addPayment({ space: s, at: new Date(det.getTime() + MIN), method: 'CLICK', status: 'PENDING_SYNC' });
-    if (i === 4) addPayment({ space: s, at: new Date(det.getTime() + 30_000), method: 'PAYME', status: 'FAILED' });
     obs(s, 'OCCUPIED', det);
     obs(s, 'OCCUPIED', new Date(now.getTime() - between(0.5, 1.5) * MIN));
     const id = randomUUID();
@@ -516,10 +511,25 @@ export async function seedDemo(prisma: PrismaClient, opts: { now?: Date; quiet?:
   const chunked = async <T>(rows: T[], fn: (c: T[]) => Promise<unknown>) => {
     for (let i = 0; i < rows.length; i += 1000) await fn(rows.slice(i, i + 1000));
   };
+  // Cash handover of closed shifts: expected = shift's confirmed cash; one historic shortage.
+  const cashByShift = new Map<string, number>();
+  for (const p of payments) {
+    if (p.method === 'CASH' && p.status === 'SUCCESS' && p.shiftId) cashByShift.set(p.shiftId, (cashByShift.get(p.shiftId) ?? 0) + p.amount);
+  }
+  const closed = shifts.filter((s) => s.status === 'CLOSED').sort((a, b) => +new Date(a.closedAt!) - +new Date(b.closedAt!));
+  for (const [i, s] of closed.entries()) {
+    const expected = cashByShift.get(s.id!) ?? 0;
+    const last = i >= closed.length - 2; // the two most recent wait for the admin to count the cash
+    const short = i === closed.length - 5 ? 20_000 : 0;
+    Object.assign(s, {
+      expectedCash: expected,
+      declaredCash: expected - short,
+      ...(last ? {} : { receivedCash: expected - short, receivedById: admin.id, receivedAt: new Date(+new Date(s.closedAt!) + 30 * MIN) }),
+    });
+  }
   await prisma.cashierShift.createMany({ data: shifts });
   await chunked(payments, (c) => prisma.payment.createMany({ data: c }));
   await chunked(receipts, (c) => prisma.receipt.createMany({ data: c }));
-  await chunked(providerTxns, (c) => prisma.paymentProviderTransaction.createMany({ data: c }));
   await prisma.paymentCancellation.createMany({ data: cancellations });
   await chunked(observations, (c) => prisma.occupancyObservation.createMany({ data: c }));
   await prisma.cameraHealthEvent.createMany({ data: healthEvents });

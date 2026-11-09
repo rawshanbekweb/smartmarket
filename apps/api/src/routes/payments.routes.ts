@@ -7,26 +7,20 @@ import { requireAuth, requireRole } from '../middleware/auth';
 import { forbidden, notFound } from '../lib/errors';
 import { dateRangeQuery, paged, paging } from '../lib/http';
 import { resolveRange } from '../services/analytics.service';
-import {
-  applyProviderEvent,
-  cancelPayment,
-  createCashPayment,
-  createSimulatedElectronicPayment,
-} from '../services/payment.service';
-import { providerStatusList } from '../integrations/payments/adapters';
-import { env } from '../config/env';
-import { AppError } from '../lib/errors';
+import { cancelPayment, COLLECT_METHODS, createCollectedPayment } from '../services/payment.service';
 
 export const paymentsRouter = Router();
 paymentsRouter.use(requireAuth);
 
 const METHODS = ['CASH', 'PAYME', 'CLICK', 'UZUM'] as const;
 const STATUSES = ['PENDING', 'PENDING_SYNC', 'SUCCESS', 'FAILED', 'CANCELLED', 'REFUNDED'] as const;
+const VERIFICATIONS = ['NOT_REQUIRED', 'PENDING', 'VERIFIED', 'MISMATCH'] as const;
 
 const listQuery = dateRangeQuery.extend({
   search: z.string().trim().max(50).optional(),
   method: z.enum(METHODS).optional(),
   status: z.enum(STATUSES).optional(),
+  verification: z.enum(VERIFICATIONS).optional(),
   cashierId: z.string().optional(),
   spaceId: z.string().optional(),
 });
@@ -47,6 +41,7 @@ paymentsRouter.get(
       ...(range && { createdAt: { gte: range.start, lt: range.end } }),
       ...(q.method && { method: q.method }),
       ...(q.status && { status: q.status }),
+      ...(q.verification && { verification: q.verification }),
       ...(q.spaceId && { spaceId: q.spaceId }),
       ...(q.cashierId && { cashierId: q.cashierId }),
       // Cashiers only ever see their own transactions (enforced server-side).
@@ -56,6 +51,7 @@ paymentsRouter.get(
           { id: { contains: q.search } },
           { space: { number: { contains: q.search, mode: 'insensitive' } } },
           { receipt: { receiptNumber: { contains: q.search, mode: 'insensitive' } } },
+          { externalRef: { contains: q.search.replace(/[\s№#-]/g, ''), mode: 'insensitive' } },
           { cashier: { fullName: { contains: q.search, mode: 'insensitive' } } },
         ],
       }),
@@ -68,8 +64,6 @@ paymentsRouter.get(
   }),
 );
 
-paymentsRouter.get('/providers', ah(async (_req, res) => res.json(providerStatusList())));
-
 paymentsRouter.get(
   '/:id',
   ah(async (req, res) => {
@@ -80,7 +74,7 @@ paymentsRouter.get(
         receipt: true,
         cycle: { select: { name: true, type: true, isDemo: true } },
         cancellation: { include: { cancelledBy: { select: { fullName: true } } } },
-        providerTxns: { select: { provider: true, providerTxnId: true, state: true, isSimulated: true, createdAt: true, signatureValid: true } },
+        verifiedBy: { select: { fullName: true } },
       },
     });
     if (!p) throw notFound("To'lov topilmadi");
@@ -97,19 +91,22 @@ paymentsRouter.get(
   }),
 );
 
+/** On-the-spot collection by a market employee: cash, or a Click transfer with its reference. */
 paymentsRouter.post(
-  '/cash',
+  '/collect',
   requireRole('CASHIER'),
   ah(async (req, res) => {
     const body = z
       .object({
         spaceId: z.string().min(1),
         amount: z.number().int().positive(),
+        method: z.enum(COLLECT_METHODS).default('CASH'),
+        externalRef: z.string().trim().max(64).optional(),
         idempotencyKey: z.string().uuid(),
         note: z.string().max(300).optional(),
       })
       .parse(req.body);
-    const r = await createCashPayment(body, req.user!, req);
+    const r = await createCollectedPayment(body, req.user!, req);
     res.status(r.replayed ? 200 : 201).json(r);
   }),
 );
@@ -121,43 +118,5 @@ paymentsRouter.post(
     const body = z.object({ reason: z.string().trim().min(5).max(500) }).parse(req.body);
     await cancelPayment(req.params.id, body.reason, req.user!, req);
     res.json({ ok: true });
-  }),
-);
-
-// ─── DEMO electronic payment simulator ─────────────────────────────────────
-
-function demoOnly() {
-  if (!env.DEMO_MODE) throw new AppError(404, 'NOT_FOUND', 'Topilmadi');
-}
-
-paymentsRouter.post(
-  '/demo-electronic',
-  requireRole('CASHIER', 'CHIEF'),
-  ah(async (req, res) => {
-    demoOnly();
-    const body = z
-      .object({ spaceId: z.string().min(1), method: z.enum(['PAYME', 'CLICK', 'UZUM']), idempotencyKey: z.string().uuid() })
-      .parse(req.body);
-    const r = await createSimulatedElectronicPayment(body, req.user!, req);
-    res.status(201).json(r);
-  }),
-);
-
-/** Simulated provider callback — goes through the same idempotent confirmation path. */
-paymentsRouter.post(
-  '/:id/demo-callback',
-  requireRole('CASHIER', 'CHIEF'),
-  ah(async (req, res) => {
-    demoOnly();
-    const body = z.object({ outcome: z.enum(['SUCCESS', 'FAILED', 'PENDING_SYNC']) }).parse(req.body);
-    const p = await prisma.payment.findUnique({ where: { id: req.params.id }, include: { providerTxns: true } });
-    if (!p || !p.isSimulated || !p.providerTxns[0]) throw notFound('Simulyatsiya to\'lovi topilmadi');
-    const txn = p.providerTxns[0];
-    const r = await applyProviderEvent(
-      txn.provider,
-      { providerTxnId: txn.providerTxnId, paymentId: p.id, outcome: body.outcome, amount: p.amount, raw: { simulated: true, outcome: body.outcome } },
-      true,
-    );
-    res.json(r);
   }),
 );

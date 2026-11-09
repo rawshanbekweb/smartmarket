@@ -1,6 +1,6 @@
 import { useState } from 'react';
 import { Link, useParams } from 'react-router-dom';
-import { App, Button, Form, Input, Modal, Table } from 'antd';
+import { App, Button, Form, Input, Modal } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { ArrowLeft, Ban, Printer } from 'lucide-react';
 import { errorMessage, get, post } from '../lib/api';
@@ -9,14 +9,16 @@ import { useAuth } from '../lib/auth';
 import { fmtDateTime, fmtMoney } from '../lib/format';
 import type { Payment } from '../lib/types';
 import { PageHeader, Card, Field, QueryView, SimulatedNotice } from '../components/common';
-import { PaymentStatusChip, MethodLabel, DemoTag } from '../components/Status';
+import { PaymentStatusChip, MethodLabel, DemoTag, VerificationChip } from '../components/Status';
 import { Receipt, type ReceiptData } from '../components/Receipt';
 
 type Detail = Omit<Payment, 'receipt'> & {
   receipt: ReceiptData | null;
   cycle: { name: string; type: string; isDemo: boolean } | null;
   cancellation: { reason: string; createdAt: string; cancelledBy: { fullName: string } } | null;
-  providerTxns: { provider: string; providerTxnId: string; state: string; isSimulated: boolean; createdAt: string; signatureValid: boolean }[];
+  verifiedBy: { fullName: string } | null;
+  verifiedAt: string | null;
+  verificationNote: string | null;
   auditTrail: { id: string; action: string; summary: string | null; createdAt: string; actor: { fullName: string } | null }[];
 };
 
@@ -64,13 +66,22 @@ export default function PaymentDetailPage() {
               }
             />
           </div>
-          {p.isSimulated && <SimulatedNotice>Bu DEMO simulyator orqali yaratilgan elektron to'lov. Haqiqiy {p.method} tranzaksiyasi emas.</SimulatedNotice>}
+          {p.isSimulated && <SimulatedNotice>{t('pay.legacySimulated')}</SimulatedNotice>}
+          {p.verification === 'MISMATCH' && <SimulatedNotice>{t('pay.mismatchNotice')}</SimulatedNotice>}
           <div className="grid gap-5 lg:grid-cols-[1fr_340px]">
             <div className="flex flex-col gap-5">
               <Card title="To'lov ma'lumotlari">
                 <Field label="To'lov ID"><span className="font-mono text-xs">{p.id}</span></Field>
                 <Field label={t('c.space')}><Link to={`/spaces/${p.space.id}`}>{p.space.number}</Link> · {p.space.row.name}</Field>
                 <Field label={t('c.method')}><MethodLabel method={p.method} simulated={p.isSimulated} /></Field>
+                {p.externalRef && <Field label={t('col.clickRef')}><span className="font-mono">{p.externalRef}</span></Field>}
+                {p.verification !== 'NOT_REQUIRED' && (
+                  <Field label={t('pv.title')}>
+                    <VerificationChip value={p.verification} />
+                    {p.verifiedBy && <span className="ml-2 text-xs text-slate-500">{p.verifiedBy.fullName} · {fmtDateTime(p.verifiedAt)}</span>}
+                    {p.verificationNote && <span className="block text-xs text-slate-500">{p.verificationNote}</span>}
+                  </Field>
+                )}
                 <Field label={t('c.cashier')}>{p.cashier?.fullName ?? '—'}</Field>
                 <Field label="Yaratilgan">{fmtDateTime(p.createdAt)}</Field>
                 <Field label="To'langan">{fmtDateTime(p.paidAt)}</Field>
@@ -83,17 +94,6 @@ export default function PaymentDetailPage() {
                   <Field label={t('c.reason')}>{p.cancellation.reason}</Field>
                   <Field label="Bekor qilgan">{p.cancellation.cancelledBy.fullName}</Field>
                   <Field label={t('c.time')}>{fmtDateTime(p.cancellation.createdAt)}</Field>
-                </Card>
-              )}
-              {p.providerTxns.length > 0 && (
-                <Card title="Provayder tranzaksiyalari">
-                  <Table rowKey="providerTxnId" size="small" pagination={false} dataSource={p.providerTxns}
-                    columns={[
-                      { title: 'Provayder', key: 'p', render: (_, x) => <MethodLabel method={x.provider} simulated={x.isSimulated} /> },
-                      { title: 'Tranzaksiya ID', dataIndex: 'providerTxnId', render: (v) => <span className="font-mono text-[11px]">{v}</span> },
-                      { title: 'Holat', dataIndex: 'state' },
-                      { title: 'Imzo', key: 's', render: (_, x) => (x.signatureValid ? 'OK' : 'Xato') },
-                    ]} />
                 </Card>
               )}
               {p.auditTrail.length > 0 && (

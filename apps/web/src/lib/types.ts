@@ -32,6 +32,9 @@ export interface Payment {
   validFrom: string | null;
   validUntil: string | null;
   createdAt: string;
+  /** Click check number recorded by the collector */
+  externalRef: string | null;
+  verification: 'NOT_REQUIRED' | 'PENDING' | 'VERIFIED' | 'MISMATCH';
   isSimulated: boolean;
   isDemo: boolean;
   note: string | null;

@@ -58,7 +58,7 @@ describe('alert lifecycle (persistent escalation)', () => {
     const space = await freshOccupiedSpace();
     const alert = await prisma.alert.findFirstOrThrow({ where: { spaceId: space.id, status: 'OPEN' } });
     const cashier = await loginAs('kassir1');
-    const r = await cashier.post('/api/payments/cash', { spaceId: space.id, amount: space.tariff.amount, idempotencyKey: uuid() });
+    const r = await cashier.post('/api/payments/collect', { spaceId: space.id, amount: space.tariff.amount, idempotencyKey: uuid() });
     expect(r.status).toBe(201);
     await processDueAlerts(new Date(Date.now() + 60 * MIN));
     const after = await prisma.alert.findUniqueOrThrow({ where: { id: alert.id } });

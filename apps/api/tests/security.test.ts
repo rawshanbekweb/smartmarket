@@ -56,10 +56,10 @@ describe('authentication & authorization', () => {
     }
   });
 
-  it('MARKET_ADMIN cannot record cash payments', async () => {
+  it('MARKET_ADMIN cannot record payments', async () => {
     const admin = await loginAs('admin');
     const space = await findUnpaidOccupiedSpace();
-    const res = await admin.post('/api/payments/cash', { spaceId: space.id, amount: space.tariff.amount, idempotencyKey: uuid() });
+    const res = await admin.post('/api/payments/collect', { spaceId: space.id, amount: space.tariff.amount, idempotencyKey: uuid() });
     expect(res.status).toBe(403);
   });
 
@@ -90,8 +90,4 @@ describe('authentication & authorization', () => {
     await expect(prisma.auditLog.delete({ where: { id: row.id } })).rejects.toThrow(/append-only/);
   });
 
-  it('real payment provider webhooks are disabled until integrated', async () => {
-    const res = await request(app).post('/api/webhooks/payments/payme').send({});
-    expect(res.status).toBe(503);
-  });
 });

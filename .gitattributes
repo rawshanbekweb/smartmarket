@@ -1,0 +1,9 @@
+# Normalise line endings in the repository; shell scripts and container files
+# must stay LF even when checked out on Windows, or they break on Linux.
+* text=auto eol=lf
+*.sh text eol=lf
+Caddyfile text eol=lf
+*.Dockerfile text eol=lf
+*.png binary
+*.jpg binary
+*.ico binary

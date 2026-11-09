@@ -17,13 +17,9 @@ const schema = z.object({
   COOKIE_SECURE: bool,
   VISION_API_KEY: z.string().min(16, 'VISION_API_KEY must be at least 16 characters'),
   ALERT_WORKER_INTERVAL_SECONDS: z.coerce.number().int().min(1).default(15),
-  PAYME_MERCHANT_ID: z.string().optional(),
-  PAYME_SECRET_KEY: z.string().optional(),
-  CLICK_SERVICE_ID: z.string().optional(),
-  CLICK_MERCHANT_ID: z.string().optional(),
-  CLICK_SECRET_KEY: z.string().optional(),
-  UZUM_MERCHANT_ID: z.string().optional(),
-  UZUM_SECRET_KEY: z.string().optional(),
+  // Reverse proxies in front of the API (nginx = 1; Caddy → nginx = 2). Wrong values
+  // make every client share the proxy's IP in rate limits and audit logs.
+  TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
 });
 
 const parsed = schema.safeParse(process.env);

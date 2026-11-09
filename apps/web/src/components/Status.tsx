@@ -105,6 +105,14 @@ export function MethodLabel({ method, simulated }: { method: string; simulated?:
   );
 }
 
+/** Click reconciliation state; nothing is shown for cash (controlled via the shift handover). */
+export function VerificationChip({ value }: { value: string }) {
+  const { t } = useI18n();
+  if (value === 'NOT_REQUIRED') return null;
+  const tone: Tone = value === 'VERIFIED' ? 'ok' : value === 'MISMATCH' ? 'bad' : 'warn';
+  return <Chip tone={tone} dot={false}>{t(`pv.${value}`)}</Chip>;
+}
+
 export function DemoTag({ show = true }: { show?: boolean }) {
   if (!show) return null;
   return (

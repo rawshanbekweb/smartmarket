@@ -9,7 +9,7 @@ import type { Alert } from '../lib/types';
 import { PageHeader, Card, ErrorState } from '../components/common';
 import { AlertStatusChip, SeverityChip, DemoTag } from '../components/Status';
 
-const TYPES = ['UNPAID_OCCUPANCY', 'CAMERA_OFFLINE', 'SELLER_COMPLAINT', 'PAYMENT_CANCELLED', 'EXEMPTION_APPROVED'];
+const TYPES = ['UNPAID_OCCUPANCY', 'CAMERA_OFFLINE', 'SELLER_COMPLAINT', 'PAYMENT_CANCELLED', 'EXEMPTION_APPROVED', 'PAYMENT_MISMATCH', 'CASH_SHORTAGE'];
 
 export default function AlertsPage() {
   const { t, lang } = useI18n();

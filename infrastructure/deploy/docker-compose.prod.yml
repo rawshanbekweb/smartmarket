@@ -1,0 +1,110 @@
+# SMART MARKET — production stack (VPS). Lives in /opt/smartmarket next to .env.
+# Images are built by GitHub Actions and pulled from GHCR; nothing is built on the server.
+#
+#   IMAGE_TAG=v1.0.0 docker compose -f docker-compose.prod.yml up -d
+#
+# Only Caddy publishes ports (80/443). PostgreSQL is never exposed to the internet.
+name: smartmarket
+
+x-logging: &logging
+  driver: json-file
+  options: { max-size: "20m", max-file: "5" }
+
+services:
+  db:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    environment:
+      POSTGRES_DB: smart_market
+      POSTGRES_USER: smart_market # schema owner: used only for migrations
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?set POSTGRES_PASSWORD}
+      APP_DB_PASSWORD: ${APP_DB_PASSWORD:?set APP_DB_PASSWORD}
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+      - ./db-init:/docker-entrypoint-initdb.d:ro
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U smart_market -d smart_market"]
+      interval: 5s
+      timeout: 5s
+      retries: 20
+    logging: *logging
+
+  api:
+    image: ghcr.io/${GHCR_OWNER:?set GHCR_OWNER}/smartmarket-api:${IMAGE_TAG:?set IMAGE_TAG}
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      NODE_ENV: production
+      DEMO_MODE: "false"
+      # Runtime role: not the table owner → cannot TRUNCATE or drop the audit trigger.
+      DATABASE_URL: postgresql://smart_market_app:${APP_DB_PASSWORD}@db:5432/smart_market?schema=public
+      MIGRATE_DATABASE_URL: postgresql://smart_market:${POSTGRES_PASSWORD}@db:5432/smart_market?schema=public
+      API_PORT: 4000
+      CORS_ORIGINS: ${PUBLIC_URL:?set PUBLIC_URL}
+      JWT_SECRET: ${JWT_SECRET:?set JWT_SECRET}
+      JWT_EXPIRES_IN_HOURS: ${JWT_EXPIRES_IN_HOURS:-12}
+      COOKIE_SECURE: ${COOKIE_SECURE:-true}
+      VISION_API_KEY: ${VISION_API_KEY:?set VISION_API_KEY}
+      ALERT_WORKER_INTERVAL_SECONDS: 15
+      TRUST_PROXY_HOPS: 2 # Caddy → nginx → api
+    healthcheck:
+      test: ["CMD-SHELL", "wget -qO- http://localhost:4000/api/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 12
+      start_period: 30s
+    stop_grace_period: 15s
+    logging: *logging
+
+  web:
+    image: ghcr.io/${GHCR_OWNER}/smartmarket-web:${IMAGE_TAG}
+    restart: unless-stopped
+    depends_on:
+      api: { condition: service_healthy }
+    logging: *logging
+
+  caddy:
+    image: caddy:2.8-alpine
+    restart: unless-stopped
+    depends_on: [web]
+    ports:
+      - "80:80"
+      - "443:443"
+    environment:
+      SITE_ADDRESS: ${SITE_ADDRESS:?set SITE_ADDRESS}
+      ACME_EMAIL: ${ACME_EMAIL:-}
+    volumes:
+      - ./Caddyfile:/etc/caddy/Caddyfile:ro
+      - caddy_data:/data
+      - caddy_config:/config
+    logging: *logging
+
+  # Daily verified dump into ./backups (copy that folder off the server too — see docs/DEPLOY.md).
+  backup:
+    image: postgres:16-alpine
+    restart: unless-stopped
+    depends_on:
+      db: { condition: service_healthy }
+    environment:
+      DATABASE_URL: postgresql://smart_market:${POSTGRES_PASSWORD}@db:5432/smart_market
+      KEEP_DAYS: ${BACKUP_KEEP_DAYS:-30}
+      BACKUP_HOUR_UTC: ${BACKUP_HOUR_UTC:-21} # 21:00 UTC = 02:00 Tashkent
+    volumes:
+      - ./backup.sh:/usr/local/bin/backup.sh:ro
+      - ./backups:/backups
+    entrypoint: ["/bin/sh", "-c"]
+    command:
+      - |
+        while true; do
+          now=$$(date -u +%s); next=$$(date -u -d "$$(date -u +%Y-%m-%d) $${BACKUP_HOUR_UTC}:00:00" +%s 2>/dev/null || echo 0)
+          [ "$$next" -le "$$now" ] && next=$$((next + 86400))
+          sleep $$((next - now))
+          sh /usr/local/bin/backup.sh /backups || echo "BACKUP FAILED" >&2
+        done
+    logging: *logging
+
+volumes:
+  pgdata:
+  caddy_data:
+  caddy_config:

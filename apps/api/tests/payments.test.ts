@@ -1,5 +1,6 @@
+import request from 'supertest';
 import { beforeAll, describe, expect, it } from 'vitest';
-import { loginAs, prisma, resetDb, uuid, findUnpaidOccupiedSpace } from './helpers';
+import { app, loginAs, prisma, resetDb, uuid, findUnpaidOccupiedSpace } from './helpers';
 
 describe('cash payment workflow', () => {
   beforeAll(async () => {
@@ -30,22 +31,22 @@ describe('cash payment workflow', () => {
     expect(activeAlert).not.toBeNull();
 
     // wrong amount is rejected — the backend tariff decides
-    const wrong = await cashier.post('/api/payments/cash', { spaceId: space.id, amount: 1, idempotencyKey: uuid() });
+    const wrong = await cashier.post('/api/payments/collect', { spaceId: space.id, amount: 1, idempotencyKey: uuid() });
     expect(wrong.status).toBe(400);
 
     const key = uuid();
-    const res = await cashier.post('/api/payments/cash', { spaceId: space.id, amount: space.tariff.amount, idempotencyKey: key });
+    const res = await cashier.post('/api/payments/collect', { spaceId: space.id, amount: space.tariff.amount, idempotencyKey: key });
     expect(res.status).toBe(201);
     expect(res.body.payment.status).toBe('SUCCESS');
     expect(res.body.receipt.receiptNumber).toMatch(/^SM-\d{8}-\d{6}$/);
 
     // idempotent replay returns the same payment
-    const replay = await cashier.post('/api/payments/cash', { spaceId: space.id, amount: space.tariff.amount, idempotencyKey: key });
+    const replay = await cashier.post('/api/payments/collect', { spaceId: space.id, amount: space.tariff.amount, idempotencyKey: key });
     expect(replay.status).toBe(200);
     expect(replay.body.payment.id).toBe(res.body.payment.id);
 
     // a second payment for the same cycle is refused
-    const dup = await cashier.post('/api/payments/cash', { spaceId: space.id, amount: space.tariff.amount, idempotencyKey: uuid() });
+    const dup = await cashier.post('/api/payments/collect', { spaceId: space.id, amount: space.tariff.amount, idempotencyKey: uuid() });
     expect(dup.status).toBe(409);
 
     // space status, alerts, dashboard, audit
@@ -62,9 +63,9 @@ describe('cash payment workflow', () => {
 
   it('requires an open shift', async () => {
     const cashier = await loginAs('kassir2');
-    expect((await cashier.post('/api/cashier/shift/close', {})).status).toBe(200);
+    expect((await cashier.post('/api/cashier/shift/close', { declaredCash: 0 })).status).toBe(200);
     const space = await findUnpaidOccupiedSpace();
-    const res = await cashier.post('/api/payments/cash', { spaceId: space.id, amount: space.tariff.amount, idempotencyKey: uuid() });
+    const res = await cashier.post('/api/payments/collect', { spaceId: space.id, amount: space.tariff.amount, idempotencyKey: uuid() });
     expect(res.status).toBe(409);
     expect((await cashier.post('/api/cashier/shift/open', {})).status).toBe(200);
   });
@@ -85,17 +86,63 @@ describe('cash payment workflow', () => {
     expect(dist.confirmedRevenue).toBe(dist.cash.amount + dist.electronic.amount);
   });
 
-  it('demo electronic payment is idempotent on provider callbacks', async () => {
+  it('Click payment needs a unique reference and waits for reconciliation', async () => {
+    const cashier = await loginAs('kassir1');
+    const space = await findUnpaidOccupiedSpace(['A', 'B']);
+    const body = { spaceId: space.id, amount: space.tariff.amount, method: 'CLICK' };
+    expect((await cashier.post('/api/payments/collect', { ...body, idempotencyKey: uuid() })).status).toBe(400);
+
+    const res = await cashier.post('/api/payments/collect', { ...body, externalRef: '№ 9876 5432', idempotencyKey: uuid() });
+    expect(res.status).toBe(201);
+    expect(res.body.payment).toMatchObject({ method: 'CLICK', status: 'SUCCESS', verification: 'PENDING', externalRef: '98765432' });
+
+    // the same Click check cannot pay for another space
+    const other = await findUnpaidOccupiedSpace(['A', 'B']);
+    const dup = await cashier.post('/api/payments/collect', { spaceId: other.id, amount: other.tariff.amount, method: 'CLICK', externalRef: '98765432', idempotencyKey: uuid() });
+    expect(dup.status).toBe(409);
+
+    // reconciliation: cashiers cannot, admins can, exactly once
+    expect((await cashier.post(`/api/collections/click/${res.body.payment.id}/verify`, { outcome: 'VERIFIED' })).status).toBe(403);
+    const admin = await loginAs('admin');
+    expect((await admin.post(`/api/collections/click/${res.body.payment.id}/verify`, { outcome: 'MISMATCH' })).status).toBe(400); // reason required
+    expect((await admin.post(`/api/collections/click/${res.body.payment.id}/verify`, { outcome: 'MISMATCH', note: "Ko'chirmada yo'q" })).status).toBe(200);
+    expect((await admin.post(`/api/collections/click/${res.body.payment.id}/verify`, { outcome: 'VERIFIED' })).status).toBe(409);
+    const alert = await prisma.alert.findFirst({ where: { type: 'PAYMENT_MISMATCH', spaceId: space.id } });
+    expect(alert?.severity).toBe('CRITICAL');
+    // the payment itself is untouched until the CHIEF decides
+    expect((await prisma.payment.findUniqueOrThrow({ where: { id: res.body.payment.id } })).status).toBe('SUCCESS');
+  });
+
+  it('cash handover: expected amount from the shift, shortage raises an alert', async () => {
+    const cashier = await loginAs('kassir3');
+    await cashier.post('/api/cashier/shift/close', { declaredCash: 0 });
+    expect((await cashier.post('/api/cashier/shift/open', {})).status).toBe(200);
+    const space = await findUnpaidOccupiedSpace(['E', 'F']);
+    expect((await cashier.post('/api/payments/collect', { spaceId: space.id, amount: space.tariff.amount, idempotencyKey: uuid() })).status).toBe(201);
+    expect((await cashier.post('/api/cashier/shift/close', {})).status).toBe(400); // declared amount required
+    const closed = await cashier.post('/api/cashier/shift/close', { declaredCash: space.tariff.amount });
+    expect(closed.status).toBe(200);
+    expect(closed.body.cashAmount).toBe(space.tariff.amount);
+    const shiftId = closed.body.shift.id;
+
+    expect((await cashier.post(`/api/collections/handovers/${shiftId}/receive`, { receivedCash: 1 })).status).toBe(403);
+    const admin = await loginAs('admin');
+    const awaiting = (await admin.get('/api/collections/handovers')).body;
+    expect(awaiting.items.some((h: { id: string }) => h.id === shiftId)).toBe(true);
+    const r = await admin.post(`/api/collections/handovers/${shiftId}/receive`, { receivedCash: space.tariff.amount - 1000 });
+    expect(r.status).toBe(200);
+    expect(r.body.difference).toBe(-1000);
+    expect((await admin.post(`/api/collections/handovers/${shiftId}/receive`, { receivedCash: 0 })).status).toBe(409);
+    expect(await prisma.alert.count({ where: { type: 'CASH_SHORTAGE' } })).toBe(1);
+    expect(await prisma.auditLog.count({ where: { action: 'SHIFT_CASH_RECEIVED', entityId: shiftId } })).toBe(1);
+  });
+
+  it('legacy provider endpoints are gone', async () => {
     const chief = await loginAs('chief');
-    const space = await findUnpaidOccupiedSpace();
-    const created = await chief.post('/api/payments/demo-electronic', { spaceId: space.id, method: 'CLICK', idempotencyKey: uuid() });
-    expect(created.status).toBe(201);
-    const id = created.body.payment.id;
-    const first = await chief.post(`/api/payments/${id}/demo-callback`, { outcome: 'SUCCESS' });
-    expect(first.body.idempotent).toBe(false);
-    const second = await chief.post(`/api/payments/${id}/demo-callback`, { outcome: 'SUCCESS' });
-    expect(second.body.idempotent).toBe(true);
-    expect(await prisma.receipt.count({ where: { paymentId: id } })).toBe(1);
+    expect((await chief.post('/api/payments/demo-electronic', {})).status).toBe(404);
+    // no webhook route any more: falls through to the CSRF guard / 404, never reaches payment code
+    const webhook = await request(app).post('/api/webhooks/payments/click').send({});
+    expect([403, 404]).toContain(webhook.status);
   });
 
   it('reports never count cancelled or pending payments as revenue', async () => {

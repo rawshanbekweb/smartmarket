@@ -21,5 +21,7 @@ COPY --from=build /app/apps/api/package.json ./apps/api/package.json
 WORKDIR /app/apps/api
 USER app
 EXPOSE 4000
-# Apply pending migrations, then start. Demo data is NEVER seeded automatically.
-CMD ["sh", "-c", "npx prisma migrate deploy && node dist/server.js"]
+# Apply pending migrations (as the schema owner when MIGRATE_DATABASE_URL is set),
+# then exec node so it receives SIGTERM for a graceful shutdown.
+# Demo data is NEVER seeded automatically.
+CMD ["sh", "-c", "DATABASE_URL=\"${MIGRATE_DATABASE_URL:-$DATABASE_URL}\" npx prisma migrate deploy && exec node dist/server.js"]

@@ -88,7 +88,7 @@ export async function resolveUnpaidAlerts(
 export async function createImmediateAlert(
   db: Db,
   data: {
-    type: 'CAMERA_OFFLINE' | 'SELLER_COMPLAINT';
+    type: 'CAMERA_OFFLINE' | 'SELLER_COMPLAINT' | 'PAYMENT_MISMATCH' | 'CASH_SHORTAGE';
     title: string;
     message?: string;
     spaceId?: string;
@@ -101,7 +101,7 @@ export async function createImmediateAlert(
   const alert = await db.alert.create({
     data: {
       ...data,
-      severity: data.type === 'CAMERA_OFFLINE' ? 'CRITICAL' : 'WARNING',
+      severity: data.type === 'SELLER_COMPLAINT' ? 'WARNING' : 'CRITICAL',
       status: 'ADMIN_NOTIFIED',
       detectedAt: now,
       adminNotifiedAt: now,

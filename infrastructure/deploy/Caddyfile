@@ -1,0 +1,22 @@
+# SITE_ADDRESS examples (set in .env):
+#   smartmarket.uz          real domain → automatic Let's Encrypt HTTPS
+#   203-0-113-10.sslip.io   no domain yet: sslip.io resolves to the VPS IP, so HTTPS still works
+#   :80                     plain HTTP — only for a first smoke test, never with real users
+{
+	email {$ACME_EMAIL}
+}
+
+{$SITE_ADDRESS} {
+	encode zstd gzip
+
+	header {
+		Strict-Transport-Security "max-age=31536000"
+		-Server
+	}
+
+	# The internal vision API is reachable only inside the docker network / VPN.
+	@internal path /api/internal/*
+	respond @internal 404
+
+	reverse_proxy web:80
+}

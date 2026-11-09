@@ -25,7 +25,7 @@ smartmarket/
 │   │   ├── src/
 │   │   │   ├── routes/      HTTP marshrutlar (har birida RBAC)
 │   │   │   ├── services/    biznes-logika (to'lov, ogohlantirish, bandlik, hisobot)
-│   │   │   ├── integrations/ camera/ (Demo, Hikvision*) va payments/ (Payme*, Click*, Uzum*, DEMO simulyator)
+│   │   │   ├── integrations/ camera/ (Demo, Hikvision*)
 │   │   │   ├── workers/     doimiy (DB asosidagi) ogohlantirish protsessori
 │   │   │   └── demo/        DEMO seed generatori
 │   │   └── tests/           Vitest + Supertest (alohida test bazasida)
@@ -91,6 +91,8 @@ docker compose exec api node dist/demo/seedCli.js
 ```
 DEMO ma'lumotlari hech qachon avtomatik yuklanmaydi.
 
+Bu lokal/staging stack. **Production (VPS, HTTPS, GitHub Actions orqali deploy, zaxira nusxa):** [docs/DEPLOY.md](docs/DEPLOY.md).
+
 ## 5. Tekshiruvlar
 
 ```bash
@@ -118,7 +120,7 @@ Testlar `DATABASE_URL` dagi baza nomini `smart_market_test` ga almashtiradi (yok
 | UZ / RU interfeys | ✅ Asosiy navigatsiya, holatlar, KPI, kassa, QR sahifa. Ba'zi ichki sahifa matnlari hozircha faqat o'zbekcha |
 | Kamera kuzatuvi | 🟡 DEMO provayder (simulyatsiya, aniq belgilangan) |
 | Kamera ko'rinishi | 🟡 Simulyatsiya qilingan kadr — jonli oqim emas |
-| Payme / Click / Uzum | 🟡 DEMO simulyator; haqiqiy adapterlar o'chirilgan (webhook 503 qaytaradi) |
+| To'lov: xodim joyida naqd yoki Click (chek raqami bilan) qabul qiladi; Click sverka; smena naqdini topshirish | ✅ Ishlaydi |
 | Hikvision RTSP/ISAPI | 🔲 Kelajak: `HikvisionCameraProvider` va `services/vision` chegaralari tayyor |
 | AI bandlik modeli | 🔲 Kelajak: ichki API (`/api/internal/vision/*`) tayyor va sinovdan o'tgan |
 
@@ -141,9 +143,9 @@ Testlar `DATABASE_URL` dagi baza nomini `smart_market_test` ga almashtiradi (yok
 
 - To'lovning haqiqiy amal qilish muddati tasdiqlanmagan — DEMO kunlik sikl ishlatiladi (`Sozlamalar → To'lov sikllari`).
 - Real kamera va real AI ulanmagan; bandlik DEMO simulyator, qo'lda tekshiruv yoki ichki API orqali keladi.
-- Payme/Click/Uzum integratsiyasi merchant shartnomasi, rasmiy protokol va sandbox sinovlarini talab qiladi.
+- Click to'lovlari API orqali emas, qo'lda (chek raqami) qayd etiladi va "Yig'im nazorati" sahifasida ko'chirma bilan solishtiriladi.
 - Audit jurnali triggeri UPDATE/DELETE ni bloklaydi, ammo jadval egasi (superuser) TRUNCATE yoki triggerni o'chirishi mumkin — productionda API ni jadval egasi bo'lmagan alohida rol bilan ishga tushiring (`docs/SECURITY.md`).
-- Docker konfiguratsiyasi yozilgan, lekin ushbu muhitda Docker daemon o'chiq bo'lgani uchun `docker compose up` sinovdan o'tkazilmagan.
+- Docker/production stack (`infrastructure/deploy`) yozilgan, lekin Docker daemon o'chiq bo'lgani uchun hali to'liq ishga tushirib sinalmagan.
 - Bir bozor rejimi: barcha jadvallar `marketId` bilan bog'langan, lekin interfeys hozircha bitta bozorni ko'rsatadi.
 - Ish vaqti standart holatda 00:00–24:00 (kun bo'yi). Bozorning haqiqiy ish vaqtini Sozlamalarda kiriting, aks holda tunda qolgan mollar uchun ogohlantirish chiqadi.
 - CHIEF uchun 2FA hali yo'q.

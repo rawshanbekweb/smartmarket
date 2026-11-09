@@ -16,7 +16,7 @@ import { emit } from '../realtime/socket';
 export const alertsRouter = Router();
 alertsRouter.use(requireAuth, requireRole('CHIEF', 'MARKET_ADMIN'));
 
-const TYPES = ['UNPAID_OCCUPANCY', 'CAMERA_OFFLINE', 'SELLER_COMPLAINT', 'PAYMENT_CANCELLED', 'EXEMPTION_APPROVED'] as const;
+const TYPES = ['UNPAID_OCCUPANCY', 'CAMERA_OFFLINE', 'SELLER_COMPLAINT', 'PAYMENT_CANCELLED', 'EXEMPTION_APPROVED', 'PAYMENT_MISMATCH', 'CASH_SHORTAGE'] as const;
 const STATUSES = ['OPEN', 'ADMIN_NOTIFIED', 'INVESTIGATING', 'ESCALATED', 'RESOLVED', 'REJECTED'] as const;
 
 const include = {

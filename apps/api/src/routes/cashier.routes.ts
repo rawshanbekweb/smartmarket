@@ -21,14 +21,20 @@ cashierRouter.get(
     const [today, shiftAgg, recent, rows, byMethod] = await Promise.all([
       prisma.payment.aggregate({ where: { cashierId: me, status: 'SUCCESS', method: 'CASH', paidAt: { gte: todayStart } }, _sum: { amount: true }, _count: true }),
       shift
-        ? prisma.payment.aggregate({ where: { shiftId: shift.id, status: 'SUCCESS' }, _sum: { amount: true }, _count: true })
+        ? prisma.payment.groupBy({ by: ['method'], where: { shiftId: shift.id, status: 'SUCCESS' }, _sum: { amount: true }, _count: true })
         : null,
       prisma.payment.findMany({ where: { cashierId: me }, include: paymentListInclude, orderBy: { createdAt: 'desc' }, take: 10 }),
       prisma.cashierRowAssignment.findMany({ where: { cashierId: me, endsAt: null }, include: { row: { select: { id: true, name: true, code: true } } } }),
       prisma.payment.groupBy({ by: ['status'], where: { cashierId: me, createdAt: { gte: todayStart } }, _count: true, _sum: { amount: true } }),
     ]);
     res.json({
-      shift: shift && { ...shift, totalAmount: shiftAgg?._sum.amount ?? 0, count: shiftAgg?._count ?? 0 },
+      shift: shift && {
+        ...shift,
+        totalAmount: shiftAgg?.reduce((n, g) => n + (g._sum.amount ?? 0), 0) ?? 0,
+        cashAmount: shiftAgg?.find((g) => g.method === 'CASH')?._sum.amount ?? 0,
+        clickAmount: shiftAgg?.find((g) => g.method === 'CLICK')?._sum.amount ?? 0,
+        count: shiftAgg?.reduce((n, g) => n + g._count, 0) ?? 0,
+      },
       cashToday: { amount: today._sum.amount ?? 0, count: today._count },
       todayByStatus: byMethod.map((g) => ({ status: g.status, count: g._count, amount: g._sum.amount ?? 0 })),
       recent,
@@ -60,4 +66,10 @@ cashierRouter.post(
   }),
 );
 
-cashierRouter.post('/shift/close', ah(async (req, res) => res.json(await closeShift(req.user!))));
+cashierRouter.post(
+  '/shift/close',
+  ah(async (req, res) => {
+    const body = z.object({ declaredCash: z.number().int().min(0), note: z.string().trim().max(300).optional() }).parse(req.body ?? {});
+    res.json(await closeShift(req.user!, body.declaredCash, body.note));
+  }),
+);

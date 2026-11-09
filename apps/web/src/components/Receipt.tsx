@@ -12,6 +12,7 @@ export interface ReceiptData {
     rowName: string;
     amount: number;
     method: string;
+    externalRef?: string | null;
     cashierName: string | null;
     paidAt: string;
     validUntil: string | null;
@@ -54,7 +55,8 @@ export function Receipt({ r, cancelled }: { r: ReceiptData; cancelled?: boolean 
       {line('Sana', fmtDateTime(c.paidAt))}
       {line('Joy', `${c.spaceNumber} (${c.rowName})`)}
       {line("To'lov usuli", METHOD[c.method] ?? c.method)}
-      {c.cashierName && line('Kassir', c.cashierName)}
+      {c.externalRef && line('Click chek №', c.externalRef)}
+      {c.cashierName && line('Qabul qildi', c.cashierName)}
       {c.cycleName && line('Sikl', c.cycleName)}
       {c.validUntil && line('Amal qiladi', fmtDateTime(c.validUntil))}
       <div className="my-3 border-0 border-t border-dashed border-slate-300" />

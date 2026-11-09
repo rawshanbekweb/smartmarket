@@ -1,8 +1,8 @@
 import { useMemo, useState } from 'react';
 import { Link } from 'react-router-dom';
-import { Alert as AntAlert, App, Button, Input, Modal, Segmented, Select, Skeleton, Table } from 'antd';
+import { Alert as AntAlert, App, Button, Form, Input, InputNumber, Modal, Segmented, Select, Skeleton, Table } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
-import { Banknote, CheckCircle2, LockOpen, Lock, Printer, Search, FlaskConical, Receipt as ReceiptIcon } from 'lucide-react';
+import { Banknote, CheckCircle2, LockOpen, Lock, Printer, Search, Smartphone, Receipt as ReceiptIcon } from 'lucide-react';
 import { errorMessage, get, newIdempotencyKey, post, type Paged } from '../lib/api';
 import { useI18n } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
@@ -15,7 +15,7 @@ import { Receipt, type ReceiptData } from '../components/Receipt';
 import { KpiCard } from '../components/KpiCard';
 
 interface Summary {
-  shift: { id: string; openedAt: string; totalAmount: number; count: number } | null;
+  shift: { id: string; openedAt: string; totalAmount: number; cashAmount: number; clickAmount: number; count: number } | null;
   cashToday: { amount: number; count: number };
   todayByStatus: { status: string; count: number; amount: number }[];
   recent: Payment[];
@@ -33,6 +33,10 @@ export default function CashierPage() {
   const [selectedId, setSelectedId] = useState<string | null>(null);
   const [receipt, setReceipt] = useState<{ paymentId: string; r: ReceiptData } | null>(null);
   const [idemKey, setIdemKey] = useState(newIdempotencyKey);
+  const [method, setMethod] = useState<'CASH' | 'CLICK'>('CASH');
+  const [clickRef, setClickRef] = useState('');
+  const [closeOpen, setCloseOpen] = useState(false);
+  const [closeForm] = Form.useForm();
 
   const summary = useQuery({ queryKey: ['cashier', 'summary'], queryFn: () => get<Summary>('/cashier/summary'), refetchInterval: 30_000 });
   const rows = useQuery({ queryKey: ['rows'], queryFn: () => get<{ id: string; name: string }[]>('/rows') });
@@ -57,18 +61,29 @@ export default function CashierPage() {
     qc.invalidateQueries({ queryKey: ['payments'] });
   };
   const shiftMut = useMutation({
-    mutationFn: (action: 'open' | 'close') => post<any>(`/cashier/shift/${action}`, {}),
-    onSuccess: (d, action) => {
-      if (action === 'close') modal.success({ title: 'Smena yopildi', content: `${d.count} ta to'lov · ${fmtMoney(d.totalAmount)}` });
-      else message.success('Smena ochildi');
+    mutationFn: (v: { action: 'open' | 'close'; declaredCash?: number; note?: string }) =>
+      post<any>(`/cashier/shift/${v.action}`, v.action === 'close' ? { declaredCash: v.declaredCash, note: v.note } : {}),
+    onSuccess: (d, v) => {
+      if (v.action === 'close') {
+        setCloseOpen(false);
+        modal.success({ title: t('cash.shiftClosed'), content: `${t('pm.CASH')}: ${fmtMoney(d.cashAmount)} · ${t('pm.CLICK')}: ${fmtMoney(d.clickAmount)}. ${t('cash.handOver')}` });
+      } else message.success('Smena ochildi');
       invalidate();
     },
     onError: (e) => message.error(errorMessage(e)),
   });
   const pay = useMutation({
-    mutationFn: (s: Space) => post<{ payment: Payment; receipt: ReceiptData }>('/payments/cash', { spaceId: s.id, amount: s.tariff.amount, idempotencyKey: idemKey }),
+    mutationFn: (s: Space) =>
+      post<{ payment: Payment; receipt: ReceiptData }>('/payments/collect', {
+        spaceId: s.id,
+        amount: s.tariff.amount,
+        method,
+        externalRef: method === 'CLICK' ? clickRef : undefined,
+        idempotencyKey: idemKey,
+      }),
     onSuccess: (d) => {
       setIdemKey(newIdempotencyKey());
+      setClickRef('');
       setReceipt({ paymentId: d.payment.id, r: d.receipt });
       message.success(t('cash.success'));
       invalidate();
@@ -78,30 +93,23 @@ export default function CashierPage() {
       setIdemKey(newIdempotencyKey());
     },
   });
-  const demoPay = useMutation({
-    mutationFn: async ({ s, method }: { s: Space; method: string }) => {
-      const r = await post<{ payment: { id: string } }>('/payments/demo-electronic', { spaceId: s.id, method, idempotencyKey: newIdempotencyKey() });
-      return post(`/payments/${r.payment.id}/demo-callback`, { outcome: 'SUCCESS' });
-    },
-    onSuccess: () => { message.success("DEMO elektron to'lov tasdiqlandi (simulyatsiya)"); invalidate(); },
-    onError: (e) => message.error(errorMessage(e)),
-  });
 
   const confirmPay = (s: Space) =>
     modal.confirm({
-      title: t('cash.confirm'),
-      icon: <Banknote className="mr-2 text-green-600" size={22} />,
+      title: method === 'CASH' ? t('cash.confirm') : t('cash.confirmClick'),
+      icon: method === 'CASH' ? <Banknote className="mr-2 text-green-600" size={22} /> : <Smartphone className="mr-2 text-blue-600" size={22} />,
       content: (
         <div className="mt-2 text-sm">
           <Field label={t('c.space')}>{s.number} · {s.row.name}</Field>
           <Field label={t('c.tariff')}>{s.tariff.name}</Field>
+          {method === 'CLICK' && <Field label={t('col.clickRef')}><span className="font-mono">{clickRef}</span></Field>}
           <div className="mt-3 rounded-lg bg-green-50 p-3 text-center">
             <div className="text-xs text-green-700">Qabul qilinadigan summa</div>
             <div className="tabular text-2xl font-bold text-green-800">{fmtMoney(s.tariff.amount)}</div>
           </div>
         </div>
       ),
-      okText: 'Naqd qabul qilindi',
+      okText: method === 'CASH' ? 'Naqd qabul qilindi' : t('cash.clickReceived'),
       cancelText: t('c.cancel'),
       onOk: () => pay.mutateAsync(s),
     });
@@ -115,11 +123,11 @@ export default function CashierPage() {
         subtitle={<span>{me?.user.fullName} · Biriktirilgan qatorlar: {summary.data?.assignedRows.map((r) => r.name).join(', ') || '—'}</span>}
         extra={
           shift ? (
-            <Button icon={<Lock size={15} />} onClick={() => modal.confirm({ title: 'Smenani yopish?', content: `Smena jami: ${fmtMoney(shift.totalAmount)} (${shift.count} ta)`, onOk: () => shiftMut.mutateAsync('close') })}>
+            <Button icon={<Lock size={15} />} onClick={() => { closeForm.setFieldsValue({ declaredCash: shift.cashAmount, note: undefined }); setCloseOpen(true); }}>
               {t('cash.closeShift')}
             </Button>
           ) : (
-            <Button type="primary" icon={<LockOpen size={15} />} loading={shiftMut.isPending} onClick={() => shiftMut.mutate('open')}>
+            <Button type="primary" icon={<LockOpen size={15} />} loading={shiftMut.isPending} onClick={() => shiftMut.mutate({ action: 'open' })}>
               {t('cash.openShift')}
             </Button>
           )
@@ -131,7 +139,7 @@ export default function CashierPage() {
       ) : (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
           <KpiCard label={t('cash.cashToday')} value={<span className="text-[22px]">{fmtMoney(summary.data?.cashToday.amount)}</span>} icon={<Banknote size={17} />} tone="ok" hint={`${summary.data?.cashToday.count ?? 0} ta to'lov`} />
-          <KpiCard label={t('cash.shiftTotal')} value={<span className="text-[22px]">{fmtMoney(shift?.totalAmount ?? 0)}</span>} icon={<ReceiptIcon size={17} />} tone="info" hint={shift ? `${shift.count} ta · ${fmtTime(shift.openedAt)} dan` : 'Smena yopiq'} />
+          <KpiCard label={t('cash.shiftTotal')} value={<span className="text-[22px]">{fmtMoney(shift?.totalAmount ?? 0)}</span>} icon={<ReceiptIcon size={17} />} tone="info" hint={shift ? `${t('pm.CASH')} ${fmtMoney(shift.cashAmount)} · ${t('pm.CLICK')} ${fmtMoney(shift.clickAmount)}` : 'Smena yopiq'} />
           <KpiCard label="Smena holati" value={shift ? 'Ochiq' : 'Yopiq'} icon={shift ? <LockOpen size={17} /> : <Lock size={17} />} tone={shift ? 'ok' : 'warn'} hint={shift ? fmtDateTime(shift.openedAt) : "To'lov uchun oching"} />
           <KpiCard label="To'lanmagan band joylar" value={spaces.data?.items.filter((s) => s.status === 'OCCUPIED_UNPAID').length ?? 0} icon={<Search size={17} />} tone="bad" hint="Barcha qatorlar bo'yicha" />
         </div>
@@ -190,20 +198,36 @@ export default function CashierPage() {
                 {selected.paymentState !== 'UNPAID' ? (
                   <AntAlert type="success" showIcon message={selected.paymentState === 'PAID' ? t('cash.alreadyPaid') : 'Bu joy imtiyozli'} />
                 ) : (
-                  <Button type="primary" size="large" block icon={<CheckCircle2 size={18} />} disabled={!shift} loading={pay.isPending} onClick={() => confirmPay(selected)} className="!h-12 !bg-green-600 hover:!bg-green-700">
-                    {t('cash.confirm')}
-                  </Button>
-                )}
-                {me?.demoMode && selected.paymentState === 'UNPAID' && (
-                  <div className="rounded-lg border border-dashed border-amber-300 p-3">
-                    <div className="mb-2 flex items-center gap-1.5 text-xs font-semibold text-amber-800"><FlaskConical size={13} /> {t('cash.demoElectronic')}</div>
-                    <div className="flex gap-2">
-                      {['PAYME', 'CLICK', 'UZUM'].map((m) => (
-                        <Button key={m} size="small" loading={demoPay.isPending} onClick={() => demoPay.mutate({ s: selected, method: m })}>{t(`pm.${m}`)}</Button>
-                      ))}
-                    </div>
-                    <div className="mt-2 text-[11px] text-amber-700">Haqiqiy provayderga so'rov yuborilmaydi.</div>
-                  </div>
+                  <>
+                    <Segmented
+                      block
+                      size="large"
+                      value={method}
+                      onChange={(v) => setMethod(v as 'CASH' | 'CLICK')}
+                      options={[
+                        { value: 'CASH', label: <span className="inline-flex items-center gap-1.5"><Banknote size={15} /> {t('pm.CASH')}</span> },
+                        { value: 'CLICK', label: <span className="inline-flex items-center gap-1.5"><Smartphone size={15} /> {t('pm.CLICK')}</span> },
+                      ]}
+                    />
+                    {method === 'CLICK' && (
+                      <div>
+                        <Input size="large" inputMode="numeric" value={clickRef} onChange={(e) => setClickRef(e.target.value)} placeholder={t('cash.clickRefPlaceholder')} className="font-mono" />
+                        <div className="mt-1 text-[11px] text-slate-500">{t('cash.clickHelp')}</div>
+                      </div>
+                    )}
+                    <Button
+                      type="primary"
+                      size="large"
+                      block
+                      icon={<CheckCircle2 size={18} />}
+                      disabled={!shift || (method === 'CLICK' && clickRef.replace(/\D/g, '').length < 4)}
+                      loading={pay.isPending}
+                      onClick={() => confirmPay(selected)}
+                      className="!h-12 !bg-green-600 hover:!bg-green-700"
+                    >
+                      {method === 'CASH' ? t('cash.confirm') : t('cash.confirmClick')}
+                    </Button>
+                  </>
                 )}
               </div>
             )}
@@ -234,10 +258,28 @@ export default function CashierPage() {
             { title: 'Yopilgan', key: 'c', render: (_, s) => (s.closedAt ? fmtDateTime(s.closedAt) : <span className="font-medium text-green-700">Ochiq</span>) },
             { title: "To'lovlar", dataIndex: 'count', align: 'right' },
             { title: 'Jami', key: 'a', align: 'right', render: (_, s) => <span className="tabular font-semibold">{fmtMoney(s.totalAmount)}</span> },
+            { title: t('cash.handoverCol'), key: 'h', render: (_, s) => (s.status === 'OPEN' ? '—' : s.receivedAt ? <span className="text-xs text-green-700">{t('col.received')}: {fmtMoney(s.receivedCash)}</span> : <span className="text-xs text-amber-700">{t('col.awaiting')}: {fmtMoney(s.declaredCash ?? 0)}</span>) },
           ]} />
       </Card>
 
       <SimulatedNotice>Kassir to'lovni bekor qila olmaydi va imtiyoz bera olmaydi. Xato kiritilgan to'lov bo'yicha rahbarga murojaat qiling.</SimulatedNotice>
+
+      <Modal open={closeOpen} title={t('cash.closeShift')} okText={t('cash.closeShift')} onCancel={() => setCloseOpen(false)} onOk={() => closeForm.submit()} confirmLoading={shiftMut.isPending} destroyOnHidden>
+        {shift && (
+          <div className="mb-3 rounded-lg bg-slate-50 p-3 text-sm">
+            <div className="flex justify-between"><span className="text-slate-500">{t('cash.expectedCash')}</span><span className="tabular font-semibold">{fmtMoney(shift.cashAmount)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">{t('pm.CLICK')}</span><span className="tabular">{fmtMoney(shift.clickAmount)}</span></div>
+          </div>
+        )}
+        <Form form={closeForm} layout="vertical" onFinish={(v) => shiftMut.mutate({ action: 'close', declaredCash: v.declaredCash, note: v.note || undefined })}>
+          <Form.Item name="declaredCash" label={t('cash.declaredCash')} extra={t('cash.declaredHelp')} rules={[{ required: true }]}>
+            <InputNumber min={0} step={1000} className="!w-full" size="large" addonAfter="UZS" />
+          </Form.Item>
+          <Form.Item name="note" label={t('c.note')}>
+            <Input maxLength={300} />
+          </Form.Item>
+        </Form>
+      </Modal>
 
       <Modal open={!!receipt} onCancel={() => setReceipt(null)} footer={null} width={380} title={<span className="flex items-center gap-2"><CheckCircle2 size={18} className="text-green-600" /> {t('cash.success')}</span>}>
         {receipt && (

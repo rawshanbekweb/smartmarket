@@ -6,6 +6,7 @@ npm workspaces monorepo: `apps/api` (Express + Prisma + PostgreSQL), `apps/web` 
 - `npm run dev` — API (4000) + web (5173, proxies `/api` and `/socket.io`)
 - `npm run db:deploy` / `npm run db:migrate` / `npm run db:seed` (DEMO only, wipes all tables)
 - `npm run setup:production -- --market … --name … --username …` — first CHIEF + market on an empty real DB
+- Deploy: tag `v*` → `.github/workflows/deploy.yml` → `infrastructure/deploy/deploy.sh` on the VPS (see `docs/DEPLOY.md`).
 - `npm test` — Vitest against `smart_market_test` DB (never the dev DB)
 - `npm run typecheck`, `npm run lint`, `npm run build`
 - On Windows, stop the running API before `npm install` / `prisma generate` (the engine DLL is locked).
@@ -13,6 +14,7 @@ npm workspaces monorepo: `apps/api` (Express + Prisma + PostgreSQL), `apps/web` 
 ## Rules that must hold
 - Business logic lives in `apps/api/src/services`, never in React components.
 - Space status is derived only in `services/spaceStatus.service.ts` (`deriveStatus`).
+- Payments: collected on the spot by a market employee (role CASHIER) — CASH or CLICK with `externalRef` (no provider API). CLICK is reconciled via `verification`; cash via shift handover (`expectedCash/declaredCash/receivedCash`). PAYME/UZUM enum values are legacy only.
 - Revenue counts `status = SUCCESS` only. Payments are never deleted; cancellation = status change + `PaymentCancellation` + audit (CHIEF only).
 - Every sensitive route declares `requireRole(...)`; financial service functions re-check the role.
 - Auth: `requireAuth` also blocks `mustChangePassword` users; `/api/auth/*` uses `requireSession`. Bump `sessionVersion` whenever a change must log a user out everywhere.

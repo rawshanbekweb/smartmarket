@@ -24,6 +24,7 @@ const ReportsPage = lazy(() => import('./pages/ReportsPage'));
 const UsersPage = lazy(() => import('./pages/UsersPage'));
 const AuditPage = lazy(() => import('./pages/AuditPage'));
 const SettingsPage = lazy(() => import('./pages/SettingsPage'));
+const CollectionsPage = lazy(() => import('./pages/CollectionsPage'));
 const PublicQrPage = lazy(() => import('./pages/PublicQrPage'));
 const ReceiptPrintPage = lazy(() => import('./pages/ReceiptPrintPage'));
 
@@ -54,7 +55,7 @@ function prefetchPages() {
     () => import('./pages/PaymentsPage'), () => import('./pages/PaymentDetailPage'), () => import('./pages/CashierPage'),
     () => import('./pages/AlertsPage'), () => import('./pages/AlertDetailPage'), () => import('./pages/ComplaintsPage'),
     () => import('./pages/ExemptionsPage'), () => import('./pages/ReportsPage'), () => import('./pages/UsersPage'),
-    () => import('./pages/AuditPage'), () => import('./pages/SettingsPage'),
+    () => import('./pages/AuditPage'), () => import('./pages/SettingsPage'), () => import('./pages/CollectionsPage'),
   ];
   const run = () => loaders.forEach((l) => l().catch(() => undefined));
   if ('requestIdleCallback' in window) window.requestIdleCallback(run, { timeout: 3000 });
@@ -113,6 +114,7 @@ export function App() {
           <Route path="/payments" element={g(ALL, <PaymentsPage />)} />
           <Route path="/payments/:id" element={g(ALL, <PaymentDetailPage />)} />
           <Route path="/cashier" element={g(['CASHIER'], <CashierPage />)} />
+          <Route path="/collections" element={g(MGMT, <CollectionsPage />)} />
           <Route path="/alerts" element={g(MGMT, <AlertsPage />)} />
           <Route path="/alerts/:id" element={g(MGMT, <AlertDetailPage />)} />
           <Route path="/complaints" element={g(MGMT, <ComplaintsPage />)} />

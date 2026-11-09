@@ -33,13 +33,16 @@ Base URL: `/api`. JSON in/out. Errors: `{ "error": { "code", "message", "details
 | PUT | `/cameras/:id/spaces` | CHIEF, ADMIN | `{spaceIds}` |
 | GET | `/payments?search&method&status&from&to` | all | CASHIER: own only |
 | GET | `/payments/:id` | all | CASHIER: own only; receipt, cancellation, provider txns, audit |
-| GET | `/payments/providers` | all | integration status |
-| POST | `/payments/cash` | CASHIER | `{spaceId, amount, idempotencyKey(uuid), note?}` → 201 `{payment, receipt}`; replay → 200; already paid → 409; amount≠tariff → 400; no open shift → 409 |
+| POST | `/payments/collect` | CASHIER | `{spaceId, amount, method: CASH\|CLICK, externalRef? (Click check no., required for CLICK, unique), idempotencyKey(uuid), note?}` → 201 `{payment, receipt}`; replay → 200; already paid / ref reused / no open shift → 409; amount≠tariff → 400. CLICK starts with `verification=PENDING` |
 | POST | `/payments/:id/cancel` | CHIEF | `{reason (≥5)}` — status → CANCELLED, record kept |
-| POST | `/payments/demo-electronic` | CASHIER, CHIEF | DEMO only. `{spaceId, method: PAYME|CLICK|UZUM, idempotencyKey}` |
-| POST | `/payments/:id/demo-callback` | CASHIER, CHIEF | DEMO only. `{outcome}` — idempotent |
 | GET | `/cashier/summary`, `/cashier/shifts` | CASHIER | |
-| POST | `/cashier/shift/open`, `/cashier/shift/close` | CASHIER | |
+| POST | `/cashier/shift/open` | CASHIER | |
+| POST | `/cashier/shift/close` | CASHIER | `{declaredCash, note?}` — expected cash computed from the shift's CASH payments |
+| GET | `/collections/summary` | CHIEF, ADMIN | Click awaiting reconciliation, mismatches, shifts awaiting cash handover |
+| GET | `/collections/click?verification=PENDING\|VERIFIED\|MISMATCH` | CHIEF, ADMIN | |
+| POST | `/collections/click/:id/verify` | CHIEF, ADMIN | `{outcome: VERIFIED\|MISMATCH, note?}` (note required for MISMATCH → CRITICAL `PAYMENT_MISMATCH` alert; payment is not cancelled) |
+| GET | `/collections/handovers?state=awaiting\|received` | CHIEF, ADMIN | |
+| POST | `/collections/handovers/:id/receive` | CHIEF, ADMIN | `{receivedCash, note?}`; once only; not for own shift; difference → `CASH_SHORTAGE` alert |
 | GET | `/alerts?status(ACTIVE|…)&type&severity&search` | CHIEF, ADMIN | |
 | GET | `/alerts/:id` | CHIEF, ADMIN | events, escalations, complaint |
 | POST | `/alerts/:id/investigate` · `/note` · `/resolve` · `/reject` | CHIEF, ADMIN | resolve of unpaid alert refused (409) while space still occupied & uncovered; reject records manual FREE |
@@ -52,7 +55,7 @@ Base URL: `/api`. JSON in/out. Errors: `{ "error": { "code", "message", "details
 | GET/POST/PATCH | `/users` | CHIEF | no self-registration; new users / password resets get `mustChangePassword`; reset, deactivation or role change revokes sessions |
 | POST | `/users/:id/unlock` | CHIEF | clear a login lockout |
 | GET | `/audit` | CHIEF | read-only |
-| GET | `/settings` | CHIEF, ADMIN | market, settings, tariffs, cycles, providers |
+| GET | `/settings` | CHIEF, ADMIN | market, settings, tariffs, cycles |
 | PUT | `/settings/values/:key` · PATCH `/settings/market` · POST/PATCH `/settings/tariffs` · POST `/settings/cycles` · POST `/settings/cycles/:id/activate` | CHIEF | |
 | GET | `/notifications` · POST `/notifications/read-all` · `/notifications/:id/read` | any | |
 | POST | `/demo/occupancy` · `/demo/cameras/:id/status` · `/demo/alerts/:id/fast-forward` | CHIEF, ADMIN | DEMO_MODE only, recorded as DEMO |
@@ -68,8 +71,8 @@ Base URL: `/api`. JSON in/out. Errors: `{ "error": { "code", "message", "details
 | POST | `/internal/vision/heartbeat` |
 Blocked at Nginx for external traffic.
 
-## Webhooks
-`POST /webhooks/payments/{payme|click|uzum}` → 503 until an adapter is implemented and enabled.
+## Payment model
+Payments are collected on the spot by a market employee (role CASHIER): cash, or a Click transfer to the market account recorded with its check number. There is no payment-provider API or webhook; Click entries are reconciled manually against the Click merchant statement (`/collections/click`).
 
 ## Realtime (Socket.IO, path `/socket.io`, cookie auth)
 Events: `space:updated`, `payment:created`, `payment:updated`, `alert:created`, `alert:updated`, `camera:updated`, `notification:new`.

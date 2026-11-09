@@ -17,11 +17,11 @@
 - **Demo safety:** seed refuses to run when `NODE_ENV=production` or `DEMO_MODE≠true`. In production the server refuses to start with `DEMO_MODE=true` or with `dev-`/`CHANGE_ME` secrets, and warns when `COOKIE_SECURE=false` or `CORS_ORIGINS` points to localhost. `setup:production` refuses a database that contains demo data.
 
 ## Remaining limitations / production checklist
-1. Run the API with a PostgreSQL role that has `INSERT, SELECT` on `AuditLog` but is **not** the table owner, so it cannot `TRUNCATE` or `DROP TRIGGER`. The migration owner role should be separate.
+1. Run the API with a PostgreSQL role that is **not** the table owner, so it cannot `TRUNCATE` or `DROP TRIGGER`. Done in the production stack: the API uses `smart_market_app` (created by `infrastructure/deploy/db-init`), migrations run as the owner via `MIGRATE_DATABASE_URL`.
 2. Terminate TLS in front of Nginx and set `COOKIE_SECURE=true`.
 3. Rotate `JWT_SECRET` / `VISION_API_KEY` via your secret manager; never commit `.env`.
 4. Rate limits are in-memory (per process). For multiple API instances use a shared store (e.g. Redis).
 5. No 2FA yet for CHIEF accounts — recommended before go-live.
-6. Real payment adapters must implement provider signature verification + replay protection before being enabled.
+6. Click payments are recorded manually by collectors; until they are reconciled against the Click statement they are `verification=PENDING`. Reconcile daily — an unreconciled Click entry is a claim, not proof of money received.
 7. Back up PostgreSQL daily (financial records) and test restores: `infrastructure/scripts/backup.sh` (verified custom-format dump + retention) and `restore.sh` (only into an empty database).
 8. Logout clears the cookie on that device only; to end every session of an account, change (or have the CHIEF reset) its password.

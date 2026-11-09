@@ -24,13 +24,13 @@ import { settingsRouter } from './routes/settings.routes';
 import { notificationsRouter } from './routes/notifications.routes';
 import { publicRouter } from './routes/public.routes';
 import { internalRouter } from './routes/internal.routes';
-import { webhooksRouter } from './routes/webhooks.routes';
 import { demoRouter } from './routes/demo.routes';
+import { collectionsRouter } from './routes/collections.routes';
 
 export function createApp() {
   const app = express();
   app.disable('x-powered-by');
-  app.set('trust proxy', 1);
+  app.set('trust proxy', env.TRUST_PROXY_HOPS);
 
   app.use(
     helmet({
@@ -63,7 +63,6 @@ export function createApp() {
 
   // Machine-to-machine routes (own auth, no cookies / CSRF)
   app.use('/api/internal', internalRouter);
-  app.use('/api/webhooks', webhooksRouter);
   // Public seller QR routes (rate limited, token based)
   app.use('/api/public', publicRouter);
 
@@ -76,6 +75,7 @@ export function createApp() {
   app.use('/api/cameras', camerasRouter);
   app.use('/api/payments', paymentsRouter);
   app.use('/api/cashier', cashierRouter);
+  app.use('/api/collections', collectionsRouter);
   app.use('/api/alerts', alertsRouter);
   app.use('/api/complaints', complaintsRouter);
   app.use('/api/exemptions', exemptionsRouter);

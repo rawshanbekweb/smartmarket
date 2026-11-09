@@ -8,7 +8,6 @@ import { badRequest, notFound } from '../lib/errors';
 import { audit } from '../lib/audit';
 import { listSettings, SETTING_DEFAULTS, validateSettingValue, type SettingKey } from '../services/settings.service';
 import { getMarket } from '../services/market.service';
-import { providerStatusList } from '../integrations/payments/adapters';
 import { env } from '../config/env';
 
 export const settingsRouter = Router();
@@ -29,7 +28,6 @@ settingsRouter.get(
       settings,
       tariffs: tariffs.map(({ _count, ...t }) => ({ ...t, widthMeters: t.widthMeters.toString(), spaceCount: _count.spaces })),
       cycles,
-      providers: providerStatusList(),
       demoMode: env.DEMO_MODE,
     });
   }),

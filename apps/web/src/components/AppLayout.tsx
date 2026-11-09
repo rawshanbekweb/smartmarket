@@ -4,7 +4,7 @@ import { Avatar, Badge, Button, Drawer, Dropdown, Input, Layout, Menu, Popover, 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   LayoutDashboard, Grid3x3, Rows3, Cctv, CreditCard, Wallet, BellRing, MessageSquareWarning, BadgePercent,
-  FileBarChart, Users, ScrollText, Settings, Bell, LogOut, Search, Menu as MenuIcon, Store, CalendarDays, KeyRound,
+  FileBarChart, Users, ScrollText, Settings, Bell, LogOut, Search, Menu as MenuIcon, Store, CalendarDays, KeyRound, HandCoins,
 } from 'lucide-react';
 import { ChangePasswordModal } from './ChangePassword';
 import { useAuth, type Role } from '../lib/auth';
@@ -33,6 +33,7 @@ const NAV: NavItem[] = [
   { key: '/cameras', icon: <Cctv size={17} />, label: 'nav.cameras', roles: MGMT, group: 'monitoring' },
   { key: '/cashier', icon: <Wallet size={17} />, label: 'nav.cashier', roles: ['CASHIER'], group: 'finance' },
   { key: '/payments', icon: <CreditCard size={17} />, label: 'nav.payments', roles: ALL, group: 'finance' },
+  { key: '/collections', icon: <HandCoins size={17} />, label: 'nav.collections', roles: MGMT, group: 'finance' },
   { key: '/alerts', icon: <BellRing size={17} />, label: 'nav.alerts', roles: MGMT, group: 'control' },
   { key: '/complaints', icon: <MessageSquareWarning size={17} />, label: 'nav.complaints', roles: MGMT, group: 'control' },
   { key: '/exemptions', icon: <BadgePercent size={17} />, label: 'nav.exemptions', roles: MGMT, group: 'control' },

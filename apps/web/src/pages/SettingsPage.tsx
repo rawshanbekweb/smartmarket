@@ -14,7 +14,6 @@ interface SettingsData {
   settings: { key: string; value: number | string; defaultValue: number | string; description: string; updatedAt: string | null; updatedBy: string | null }[];
   tariffs: { id: string; name: string; amount: number; widthMeters: string; isDefault: boolean; isActive: boolean; isDemo: boolean; spaceCount: number }[];
   cycles: { id: string; name: string; type: 'CALENDAR_DAY' | 'FIXED_DURATION'; durationMinutes: number | null; description: string | null; isActive: boolean; isDemo: boolean }[];
-  providers: { method: string; integrated: boolean; credentialsConfigured: boolean; simulatorAvailable: boolean }[];
   demoMode: boolean;
 }
 
@@ -98,23 +97,8 @@ export default function SettingsPage() {
               ]} />
           </Card>
 
-          <Card title="To'lov provayderlari">
-            <div className="grid gap-3 md:grid-cols-4">
-              <div className="rounded-lg border border-solid border-slate-200 p-3">
-                <div className="font-semibold">Naqd (kassa)</div>
-                <div className="mt-1"><Chip tone="ok">Ishlaydi</Chip></div>
-              </div>
-              {d.providers.map((p) => (
-                <div key={p.method} className="rounded-lg border border-solid border-slate-200 p-3">
-                  <div className="font-semibold">{t(`pm.${p.method}`)}</div>
-                  <div className="mt-1 flex flex-wrap gap-1">
-                    <Chip tone={p.integrated ? 'ok' : 'warn'}>{p.integrated ? 'Ulangan' : 'Ulanmagan (rejada)'}</Chip>
-                    {p.simulatorAvailable && <Chip tone="neutral">DEMO simulyator</Chip>}
-                  </div>
-                  <div className="mt-2 text-[11px] text-slate-500">Merchant ma'lumotlari: {p.credentialsConfigured ? 'kiritilgan' : "yo'q"}</div>
-                </div>
-              ))}
-            </div>
+          <Card title={t('pay.modelTitle')}>
+            <p className="m-0 text-sm text-slate-600">{t('pay.modelNote')}</p>
           </Card>
 
           <Modal open={!!tariffOpen} title={tariffOpen === 'new' ? 'Yangi tarif' : 'Tarifni tahrirlash'} onCancel={() => setTariffOpen(null)} onOk={() => tForm.submit()} confirmLoading={mut.isPending} destroyOnHidden>

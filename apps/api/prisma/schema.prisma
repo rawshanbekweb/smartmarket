@@ -25,11 +25,23 @@ enum OccupancyState {
   UNKNOWN
 }
 
+// Payments are collected on the spot by a market employee (role CASHIER):
+// cash in hand, or a Click transfer to the market's account that the employee
+// records with its Click reference. There is no provider API integration.
+// PAYME / UZUM are legacy values kept only so old rows stay readable — not accepted.
 enum PaymentMethod {
   CASH
   PAYME
   CLICK
   UZUM
+}
+
+// Reconciliation of manually recorded electronic transfers against the Click statement.
+enum PaymentVerification {
+  NOT_REQUIRED // cash: controlled through the shift cash handover
+  PENDING
+  VERIFIED
+  MISMATCH
 }
 
 enum PaymentStatus {
@@ -75,6 +87,8 @@ enum AlertType {
   SELLER_COMPLAINT
   PAYMENT_CANCELLED
   EXEMPTION_APPROVED
+  PAYMENT_MISMATCH
+  CASH_SHORTAGE
 }
 
 enum AlertSeverity {
@@ -118,50 +132,52 @@ enum ExemptionStatus {
 // ─── Identity ───────────────────────────────────────────────────────────────
 
 model User {
-  id           String    @id @default(cuid())
-  fullName     String
-  username     String    @unique
-  passwordHash String
-  role         Role
-  phone        String?
-  isActive     Boolean   @default(true)
-  isDemo       Boolean   @default(false)
-  lastLoginAt  DateTime?
+  id                 String    @id @default(cuid())
+  fullName           String
+  username           String    @unique
+  passwordHash       String
+  role               Role
+  phone              String?
+  isActive           Boolean   @default(true)
+  isDemo             Boolean   @default(false)
+  lastLoginAt        DateTime?
   // Bumped on password reset / deactivation / role change: invalidates issued sessions.
   sessionVersion     Int       @default(0)
   failedLoginCount   Int       @default(0)
   lockedUntil        DateTime?
   mustChangePassword Boolean   @default(false)
   passwordChangedAt  DateTime?
-  createdAt    DateTime  @default(now())
-  updatedAt    DateTime  @updatedAt
+  createdAt          DateTime  @default(now())
+  updatedAt          DateTime  @updatedAt
 
-  payments             Payment[]               @relation("CashierPayments")
-  shifts               CashierShift[]
-  rowAssignments       CashierRowAssignment[]
-  cancellations        PaymentCancellation[]
-  exemptionsRequested  Exemption[]             @relation("ExemptionRequestedBy")
-  exemptionsApproved   Exemption[]             @relation("ExemptionApprovedBy")
-  alertsResolved       Alert[]                 @relation("AlertResolvedBy")
-  alertsAssigned       Alert[]                 @relation("AlertAssignedTo")
-  alertEvents          AlertEvent[]
-  complaintsResolved   Complaint[]             @relation("ComplaintResolvedBy")
-  complaintsAboutMe    Complaint[]             @relation("ComplaintRelatedCashier")
-  notifications        Notification[]
-  auditLogs            AuditLog[]
-  settingsUpdated      SystemSetting[]
+  payments            Payment[]              @relation("CashierPayments")
+  paymentsVerified    Payment[]              @relation("PaymentVerifiedBy")
+  shifts              CashierShift[]
+  shiftsReceived      CashierShift[]         @relation("ShiftReceivedBy")
+  rowAssignments      CashierRowAssignment[]
+  cancellations       PaymentCancellation[]
+  exemptionsRequested Exemption[]            @relation("ExemptionRequestedBy")
+  exemptionsApproved  Exemption[]            @relation("ExemptionApprovedBy")
+  alertsResolved      Alert[]                @relation("AlertResolvedBy")
+  alertsAssigned      Alert[]                @relation("AlertAssignedTo")
+  alertEvents         AlertEvent[]
+  complaintsResolved  Complaint[]            @relation("ComplaintResolvedBy")
+  complaintsAboutMe   Complaint[]            @relation("ComplaintRelatedCashier")
+  notifications       Notification[]
+  auditLogs           AuditLog[]
+  settingsUpdated     SystemSetting[]
 }
 
 // ─── Market structure ───────────────────────────────────────────────────────
 
 model Market {
-  id                String   @id @default(cuid())
-  name              String
-  address           String?
-  utcOffsetMinutes  Int      @default(300) // Asia/Tashkent, UTC+5, no DST
-  isDemo            Boolean  @default(false)
-  createdAt         DateTime @default(now())
-  updatedAt         DateTime @updatedAt
+  id               String   @id @default(cuid())
+  name             String
+  address          String?
+  utcOffsetMinutes Int      @default(300) // Asia/Tashkent, UTC+5, no DST
+  isDemo           Boolean  @default(false)
+  createdAt        DateTime @default(now())
+  updatedAt        DateTime @updatedAt
 
   rows          MarketRow[]
   spaces        TradingSpace[]
@@ -255,33 +271,42 @@ model TradingSpace {
 // ─── Payments ───────────────────────────────────────────────────────────────
 
 model Payment {
-  id             String        @id @default(cuid())
-  spaceId        String
-  cashierId      String?
-  shiftId        String?
-  cycleId        String?
-  method         PaymentMethod
-  status         PaymentStatus
-  amount         Int // UZS
-  validFrom      DateTime?
-  validUntil     DateTime?
-  paidAt         DateTime?
-  idempotencyKey String?       @unique
-  note           String?
-  isSimulated    Boolean       @default(false) // DEMO electronic simulator
-  isDemo         Boolean       @default(false)
-  createdAt      DateTime      @default(now())
-  updatedAt      DateTime      @updatedAt
+  id               String              @id @default(cuid())
+  spaceId          String
+  cashierId        String?
+  shiftId          String?
+  cycleId          String?
+  method           PaymentMethod
+  status           PaymentStatus
+  amount           Int // UZS
+  validFrom        DateTime?
+  validUntil       DateTime?
+  paidAt           DateTime?
+  idempotencyKey   String?             @unique
+  note             String?
+  // Click check / transaction number written down by the collector (unique per method)
+  externalRef      String?
+  verification     PaymentVerification @default(NOT_REQUIRED)
+  verifiedById     String?
+  verifiedAt       DateTime?
+  verificationNote String?
+  isSimulated      Boolean             @default(false) // legacy DEMO electronic simulator
+  isDemo           Boolean             @default(false)
+  createdAt        DateTime            @default(now())
+  updatedAt        DateTime            @updatedAt
 
-  space         TradingSpace                 @relation(fields: [spaceId], references: [id])
-  cashier       User?                        @relation("CashierPayments", fields: [cashierId], references: [id])
-  shift         CashierShift?                @relation(fields: [shiftId], references: [id])
-  cycle         PaymentCycle?                @relation(fields: [cycleId], references: [id])
-  receipt       Receipt?
-  cancellation  PaymentCancellation?
-  providerTxns  PaymentProviderTransaction[]
+  space        TradingSpace                 @relation(fields: [spaceId], references: [id])
+  cashier      User?                        @relation("CashierPayments", fields: [cashierId], references: [id])
+  shift        CashierShift?                @relation(fields: [shiftId], references: [id])
+  cycle        PaymentCycle?                @relation(fields: [cycleId], references: [id])
+  verifiedBy   User?                        @relation("PaymentVerifiedBy", fields: [verifiedById], references: [id])
+  receipt      Receipt?
+  cancellation PaymentCancellation?
+  providerTxns PaymentProviderTransaction[]
 
+  @@unique([method, externalRef])
   @@index([spaceId, status, validUntil])
+  @@index([verification, createdAt])
   @@index([status, paidAt])
   @@index([cashierId, paidAt])
   @@index([createdAt])
@@ -327,18 +352,28 @@ model PaymentCancellation {
 }
 
 model CashierShift {
-  id        String      @id @default(cuid())
-  cashierId String
-  status    ShiftStatus @default(OPEN)
-  openedAt  DateTime    @default(now())
-  closedAt  DateTime?
-  note      String?
-  isDemo    Boolean     @default(false)
+  id           String      @id @default(cuid())
+  cashierId    String
+  status       ShiftStatus @default(OPEN)
+  openedAt     DateTime    @default(now())
+  closedAt     DateTime?
+  note         String?
+  // Cash handover: computed from the shift's CASH payments at close, declared by
+  // the collector, then counted and confirmed by MARKET_ADMIN / CHIEF.
+  expectedCash Int?
+  declaredCash Int?
+  receivedCash Int?
+  receivedById String?
+  receivedAt   DateTime?
+  handoverNote String?
+  isDemo       Boolean     @default(false)
 
-  cashier  User      @relation(fields: [cashierId], references: [id])
-  payments Payment[]
+  cashier    User      @relation(fields: [cashierId], references: [id])
+  receivedBy User?     @relation("ShiftReceivedBy", fields: [receivedById], references: [id])
+  payments   Payment[]
 
   @@index([cashierId, status])
+  @@index([status, receivedAt])
 }
 
 model CashierRowAssignment {

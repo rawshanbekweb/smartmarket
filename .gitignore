@@ -1,0 +1,16 @@
+node_modules/
+dist/
+.env
+.env.*
+!.env.example
+*.log
+coverage/
+.vite/
+__pycache__/
+*.pyc
+.venv/
+.DS_Store
+
+# curl cookie jars from local testing
+apps/api/chief.txt
+*.cookies

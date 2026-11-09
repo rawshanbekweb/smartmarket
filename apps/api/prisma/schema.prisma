@@ -1,0 +1,587 @@
+// SMART MARKET — database schema
+// Money is stored as integer UZS (so'm). Never use floating point for currency.
+
+generator client {
+  provider      = "prisma-client-js"
+  binaryTargets = ["native", "linux-musl-openssl-3.0.x", "debian-openssl-3.0.x"]
+}
+
+datasource db {
+  provider = "postgresql"
+  url      = env("DATABASE_URL")
+}
+
+// ─── Enums ──────────────────────────────────────────────────────────────────
+
+enum Role {
+  CHIEF
+  MARKET_ADMIN
+  CASHIER
+}
+
+enum OccupancyState {
+  FREE
+  OCCUPIED
+  UNKNOWN
+}
+
+enum PaymentMethod {
+  CASH
+  PAYME
+  CLICK
+  UZUM
+}
+
+enum PaymentStatus {
+  PENDING
+  PENDING_SYNC
+  SUCCESS
+  FAILED
+  CANCELLED
+  REFUNDED
+}
+
+enum PaymentCycleType {
+  CALENDAR_DAY // valid until the end of the local market day
+  FIXED_DURATION // valid for durationMinutes after payment
+}
+
+enum ShiftStatus {
+  OPEN
+  CLOSED
+}
+
+enum CameraProviderType {
+  DEMO
+  HIKVISION
+}
+
+enum CameraStatus {
+  ONLINE
+  OFFLINE
+  DEGRADED
+  MAINTENANCE
+}
+
+enum ObservationSource {
+  AI
+  DEMO_SIMULATOR
+  MANUAL
+}
+
+enum AlertType {
+  UNPAID_OCCUPANCY
+  CAMERA_OFFLINE
+  SELLER_COMPLAINT
+  PAYMENT_CANCELLED
+  EXEMPTION_APPROVED
+}
+
+enum AlertSeverity {
+  INFO
+  WARNING
+  CRITICAL
+}
+
+enum AlertStatus {
+  OPEN
+  ADMIN_NOTIFIED
+  INVESTIGATING
+  ESCALATED
+  RESOLVED
+  REJECTED
+}
+
+enum EscalationLevel {
+  MARKET_ADMIN
+  CHIEF
+}
+
+enum ComplaintType {
+  CASH_PAID_NO_RECEIPT
+}
+
+enum ComplaintStatus {
+  NEW
+  INVESTIGATING
+  RESOLVED
+  REJECTED
+}
+
+enum ExemptionStatus {
+  PENDING
+  APPROVED
+  REJECTED
+  REVOKED
+}
+
+// ─── Identity ───────────────────────────────────────────────────────────────
+
+model User {
+  id           String    @id @default(cuid())
+  fullName     String
+  username     String    @unique
+  passwordHash String
+  role         Role
+  phone        String?
+  isActive     Boolean   @default(true)
+  isDemo       Boolean   @default(false)
+  lastLoginAt  DateTime?
+  createdAt    DateTime  @default(now())
+  updatedAt    DateTime  @updatedAt
+
+  payments             Payment[]               @relation("CashierPayments")
+  shifts               CashierShift[]
+  rowAssignments       CashierRowAssignment[]
+  cancellations        PaymentCancellation[]
+  exemptionsRequested  Exemption[]             @relation("ExemptionRequestedBy")
+  exemptionsApproved   Exemption[]             @relation("ExemptionApprovedBy")
+  alertsResolved       Alert[]                 @relation("AlertResolvedBy")
+  alertsAssigned       Alert[]                 @relation("AlertAssignedTo")
+  alertEvents          AlertEvent[]
+  complaintsResolved   Complaint[]             @relation("ComplaintResolvedBy")
+  complaintsAboutMe    Complaint[]             @relation("ComplaintRelatedCashier")
+  notifications        Notification[]
+  auditLogs            AuditLog[]
+  settingsUpdated      SystemSetting[]
+}
+
+// ─── Market structure ───────────────────────────────────────────────────────
+
+model Market {
+  id                String   @id @default(cuid())
+  name              String
+  address           String?
+  utcOffsetMinutes  Int      @default(300) // Asia/Tashkent, UTC+5, no DST
+  isDemo            Boolean  @default(false)
+  createdAt         DateTime @default(now())
+  updatedAt         DateTime @updatedAt
+
+  rows          MarketRow[]
+  spaces        TradingSpace[]
+  tariffs       Tariff[]
+  paymentCycles PaymentCycle[]
+  cameras       Camera[]
+}
+
+model MarketRow {
+  id        String   @id @default(cuid())
+  marketId  String
+  code      String
+  name      String
+  sortOrder Int      @default(0)
+  isActive  Boolean  @default(true)
+  isDemo    Boolean  @default(false)
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  market            Market                 @relation(fields: [marketId], references: [id])
+  spaces            TradingSpace[]
+  cashierAssignment CashierRowAssignment[]
+
+  @@unique([marketId, code])
+}
+
+model Tariff {
+  id          String   @id @default(cuid())
+  marketId    String
+  name        String
+  amount      Int // UZS per payment cycle
+  widthMeters Decimal  @db.Decimal(5, 2) // frontage length in meters (not m²)
+  isDefault   Boolean  @default(false)
+  isActive    Boolean  @default(true)
+  isDemo      Boolean  @default(false)
+  createdAt   DateTime @default(now())
+  updatedAt   DateTime @updatedAt
+
+  market Market         @relation(fields: [marketId], references: [id])
+  spaces TradingSpace[]
+}
+
+model PaymentCycle {
+  id              String           @id @default(cuid())
+  marketId        String
+  name            String
+  type            PaymentCycleType
+  durationMinutes Int? // required for FIXED_DURATION
+  description     String?
+  isActive        Boolean          @default(false)
+  isDemo          Boolean          @default(false)
+  createdAt       DateTime         @default(now())
+  updatedAt       DateTime         @updatedAt
+
+  market   Market    @relation(fields: [marketId], references: [id])
+  payments Payment[]
+}
+
+model TradingSpace {
+  id             String         @id @default(cuid())
+  marketId       String
+  rowId          String
+  number         String
+  positionInRow  Int            @default(0)
+  widthMeters    Decimal        @db.Decimal(5, 2) // frontage length in meters
+  tariffId       String
+  qrToken        String         @unique
+  occupancyState OccupancyState @default(UNKNOWN)
+  lastDetectedAt DateTime?
+  isActive       Boolean        @default(true)
+  notes          String?
+  isDemo         Boolean        @default(false)
+  createdAt      DateTime       @default(now())
+  updatedAt      DateTime       @updatedAt
+
+  market       Market                 @relation(fields: [marketId], references: [id])
+  row          MarketRow              @relation(fields: [rowId], references: [id])
+  tariff       Tariff                 @relation(fields: [tariffId], references: [id])
+  cameraZone   CameraZone?
+  payments     Payment[]
+  observations OccupancyObservation[]
+  alerts       Alert[]
+  complaints   Complaint[]
+  exemptions   Exemption[]
+
+  @@unique([marketId, number])
+  @@index([rowId])
+  @@index([occupancyState])
+}
+
+// ─── Payments ───────────────────────────────────────────────────────────────
+
+model Payment {
+  id             String        @id @default(cuid())
+  spaceId        String
+  cashierId      String?
+  shiftId        String?
+  cycleId        String?
+  method         PaymentMethod
+  status         PaymentStatus
+  amount         Int // UZS
+  validFrom      DateTime?
+  validUntil     DateTime?
+  paidAt         DateTime?
+  idempotencyKey String?       @unique
+  note           String?
+  isSimulated    Boolean       @default(false) // DEMO electronic simulator
+  isDemo         Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  space         TradingSpace                 @relation(fields: [spaceId], references: [id])
+  cashier       User?                        @relation("CashierPayments", fields: [cashierId], references: [id])
+  shift         CashierShift?                @relation(fields: [shiftId], references: [id])
+  cycle         PaymentCycle?                @relation(fields: [cycleId], references: [id])
+  receipt       Receipt?
+  cancellation  PaymentCancellation?
+  providerTxns  PaymentProviderTransaction[]
+
+  @@index([spaceId, status, validUntil])
+  @@index([status, paidAt])
+  @@index([cashierId, paidAt])
+  @@index([createdAt])
+}
+
+model PaymentProviderTransaction {
+  id             String        @id @default(cuid())
+  paymentId      String
+  provider       PaymentMethod
+  providerTxnId  String
+  state          String
+  signatureValid Boolean
+  payload        Json? // sanitized — never store secrets or card data
+  isSimulated    Boolean       @default(false)
+  createdAt      DateTime      @default(now())
+  updatedAt      DateTime      @updatedAt
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+
+  @@unique([provider, providerTxnId])
+}
+
+model Receipt {
+  id            String   @id @default(cuid())
+  paymentId     String   @unique
+  receiptNumber String   @unique
+  publicToken   String   @unique
+  issuedAt      DateTime @default(now())
+  content       Json
+
+  payment Payment @relation(fields: [paymentId], references: [id])
+}
+
+model PaymentCancellation {
+  id            String   @id @default(cuid())
+  paymentId     String   @unique
+  reason        String
+  cancelledById String
+  createdAt     DateTime @default(now())
+
+  payment     Payment @relation(fields: [paymentId], references: [id])
+  cancelledBy User    @relation(fields: [cancelledById], references: [id])
+}
+
+model CashierShift {
+  id        String      @id @default(cuid())
+  cashierId String
+  status    ShiftStatus @default(OPEN)
+  openedAt  DateTime    @default(now())
+  closedAt  DateTime?
+  note      String?
+  isDemo    Boolean     @default(false)
+
+  cashier  User      @relation(fields: [cashierId], references: [id])
+  payments Payment[]
+
+  @@index([cashierId, status])
+}
+
+model CashierRowAssignment {
+  id        String    @id @default(cuid())
+  cashierId String
+  rowId     String
+  startsAt  DateTime  @default(now())
+  endsAt    DateTime?
+  isDemo    Boolean   @default(false)
+
+  cashier User      @relation(fields: [cashierId], references: [id])
+  row     MarketRow @relation(fields: [rowId], references: [id])
+
+  @@index([rowId, startsAt])
+}
+
+// ─── Cameras & occupancy ────────────────────────────────────────────────────
+
+model Camera {
+  id                String             @id @default(cuid())
+  marketId          String
+  code              String             @unique
+  name              String
+  ipAddress         String?
+  model             String?
+  provider          CameraProviderType @default(DEMO)
+  // Reference (key name) to stream configuration kept in server-side secrets.
+  // Never store RTSP credentials here.
+  streamConfigRef   String?
+  status            CameraStatus       @default(OFFLINE)
+  monitoringEnabled Boolean            @default(true)
+  lastHeartbeatAt   DateTime?
+  lastFrameAt       DateTime?
+  isDemo            Boolean            @default(false)
+  createdAt         DateTime           @default(now())
+  updatedAt         DateTime           @updatedAt
+
+  market       Market                 @relation(fields: [marketId], references: [id])
+  zones        CameraZone[]
+  observations OccupancyObservation[]
+  healthEvents CameraHealthEvent[]
+  alerts       Alert[]
+}
+
+model CameraZone {
+  id        String   @id @default(cuid())
+  cameraId  String
+  spaceId   String   @unique
+  zoneCode  String
+  polygon   Json? // normalized [x,y] points within the frame
+  createdAt DateTime @default(now())
+  updatedAt DateTime @updatedAt
+
+  camera Camera       @relation(fields: [cameraId], references: [id])
+  space  TradingSpace @relation(fields: [spaceId], references: [id])
+
+  @@unique([cameraId, zoneCode])
+}
+
+model OccupancyObservation {
+  id         String            @id @default(cuid())
+  spaceId    String
+  cameraId   String?
+  state      OccupancyState
+  confidence Float?
+  source     ObservationSource
+  observedAt DateTime
+  isDemo     Boolean           @default(false)
+  createdAt  DateTime          @default(now())
+
+  space  TradingSpace @relation(fields: [spaceId], references: [id])
+  camera Camera?      @relation(fields: [cameraId], references: [id])
+
+  @@index([spaceId, observedAt])
+}
+
+model CameraHealthEvent {
+  id        String       @id @default(cuid())
+  cameraId  String
+  status    CameraStatus
+  message   String?
+  isDemo    Boolean      @default(false)
+  createdAt DateTime     @default(now())
+
+  camera Camera @relation(fields: [cameraId], references: [id])
+
+  @@index([cameraId, createdAt])
+}
+
+// ─── Alerts ─────────────────────────────────────────────────────────────────
+
+model Alert {
+  id              String        @id @default(cuid())
+  type            AlertType
+  severity        AlertSeverity
+  status          AlertStatus   @default(OPEN)
+  title           String
+  message         String?
+  spaceId         String?
+  cameraId        String?
+  complaintId     String?
+  paymentId       String?
+  detectedAt      DateTime      @default(now())
+  // Persistent escalation schedule (processed by the alert worker)
+  adminNotifyAt   DateTime?
+  adminNotifiedAt DateTime?
+  chiefEscalateAt DateTime?
+  escalatedAt     DateTime?
+  resolvedAt      DateTime?
+  resolvedById    String?
+  resolutionNote  String?
+  assignedToId    String?
+  isDemo          Boolean       @default(false)
+  createdAt       DateTime      @default(now())
+  updatedAt       DateTime      @updatedAt
+
+  space       TradingSpace?     @relation(fields: [spaceId], references: [id])
+  camera      Camera?           @relation(fields: [cameraId], references: [id])
+  complaint   Complaint?        @relation(fields: [complaintId], references: [id])
+  resolvedBy  User?             @relation("AlertResolvedBy", fields: [resolvedById], references: [id])
+  assignedTo  User?             @relation("AlertAssignedTo", fields: [assignedToId], references: [id])
+  escalations AlertEscalation[]
+  events      AlertEvent[]
+
+  @@index([status, adminNotifyAt])
+  @@index([status, chiefEscalateAt])
+  @@index([spaceId, type, status])
+  @@index([detectedAt])
+}
+
+model AlertEscalation {
+  id        String          @id @default(cuid())
+  alertId   String
+  level     EscalationLevel
+  createdAt DateTime        @default(now())
+
+  alert Alert @relation(fields: [alertId], references: [id])
+
+  @@unique([alertId, level])
+}
+
+model AlertEvent {
+  id        String   @id @default(cuid())
+  alertId   String
+  actorId   String?
+  action    String
+  note      String?
+  createdAt DateTime @default(now())
+
+  alert Alert @relation(fields: [alertId], references: [id])
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([alertId, createdAt])
+}
+
+// ─── Complaints & exemptions ────────────────────────────────────────────────
+
+model Complaint {
+  id               String          @id @default(cuid())
+  spaceId          String
+  type             ComplaintType
+  status           ComplaintStatus @default(NEW)
+  description      String?
+  contactPhone     String?
+  relatedCashierId String?
+  resolutionNote   String?
+  resolvedById     String?
+  resolvedAt       DateTime?
+  isDemo           Boolean         @default(false)
+  createdAt        DateTime        @default(now())
+  updatedAt        DateTime        @updatedAt
+
+  space          TradingSpace @relation(fields: [spaceId], references: [id])
+  relatedCashier User?        @relation("ComplaintRelatedCashier", fields: [relatedCashierId], references: [id])
+  resolvedBy     User?        @relation("ComplaintResolvedBy", fields: [resolvedById], references: [id])
+  alerts         Alert[]
+
+  @@index([status, createdAt])
+}
+
+model Exemption {
+  id            String          @id @default(cuid())
+  spaceId       String
+  reason        String
+  status        ExemptionStatus @default(PENDING)
+  validFrom     DateTime
+  validUntil    DateTime
+  requestedById String
+  approvedById  String?
+  approvedAt    DateTime?
+  decisionNote  String?
+  isDemo        Boolean         @default(false)
+  createdAt     DateTime        @default(now())
+  updatedAt     DateTime        @updatedAt
+
+  space       TradingSpace @relation(fields: [spaceId], references: [id])
+  requestedBy User         @relation("ExemptionRequestedBy", fields: [requestedById], references: [id])
+  approvedBy  User?        @relation("ExemptionApprovedBy", fields: [approvedById], references: [id])
+
+  @@index([spaceId, status, validFrom, validUntil])
+}
+
+// ─── Notifications, audit, settings ─────────────────────────────────────────
+
+model Notification {
+  id        String    @id @default(cuid())
+  userId    String
+  type      String
+  title     String
+  body      String?
+  link      String?
+  alertId   String?
+  readAt    DateTime?
+  createdAt DateTime  @default(now())
+
+  user User @relation(fields: [userId], references: [id])
+
+  @@index([userId, readAt])
+}
+
+// Append-only. UPDATE/DELETE are blocked by a database trigger (see migrations).
+model AuditLog {
+  id         BigInt   @id @default(autoincrement())
+  actorId    String?
+  actorRole  String?
+  action     String
+  entityType String
+  entityId   String?
+  summary    String?
+  before     Json?
+  after      Json?
+  ip         String?
+  userAgent  String?
+  isDemo     Boolean  @default(false)
+  createdAt  DateTime @default(now())
+
+  actor User? @relation(fields: [actorId], references: [id])
+
+  @@index([entityType, entityId])
+  @@index([actorId, createdAt])
+  @@index([createdAt])
+}
+
+model SystemSetting {
+  key         String   @id
+  value       Json
+  description String?
+  updatedById String?
+  updatedAt   DateTime @updatedAt
+
+  updatedBy User? @relation(fields: [updatedById], references: [id])
+}

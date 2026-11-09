@@ -1,0 +1,73 @@
+# SMART MARKET API
+
+Base URL: `/api`. JSON in/out. Errors: `{ "error": { "code", "message", "details?" } }`.
+
+**Auth:** `POST /auth/login` sets an httpOnly, `SameSite=Strict` cookie `sm_session` (JWT, 12h).
+**CSRF:** every non-GET request with the cookie must send `X-Requested-With: SmartMarket`.
+**Roles:** `CHIEF`, `MARKET_ADMIN`, `CASHIER`. All checks are enforced server-side.
+**Paging:** `page` (1..), `pageSize` (≤200) → `{ items, total, page, pageSize }`.
+**Money:** integer UZS. Revenue = `SUCCESS` payments only.
+
+| Method | Path | Roles | Notes |
+|---|---|---|---|
+| GET | `/health` | public | DB status, demoMode |
+| POST | `/auth/login` | public | rate limited (20 / 15 min) |
+| POST | `/auth/logout` | any | |
+| GET | `/auth/me` | any | user, market, demoMode |
+| GET | `/dashboard/summary` | CHIEF, ADMIN | KPIs (live from DB) |
+| GET | `/dashboard/occupancy` | all | rows → spaces with derived status |
+| GET | `/dashboard/revenue?from&to` | CHIEF, ADMIN | daily cash / electronic |
+| GET | `/dashboard/payment-distribution?from&to` | CHIEF, ADMIN | cash, electronic, pendingSync, cancelled |
+| GET | `/spaces?search&rowId&occupancy&status&paymentState&active` | all | QR token hidden from CASHIER |
+| GET | `/spaces/:id` | all | payments (cashier: own), alerts, exemptions, observations |
+| GET | `/spaces/:id/history` | CHIEF, ADMIN | audit trail |
+| POST | `/spaces` | CHIEF, ADMIN | `{number,rowId,widthMeters,tariffId,notes?}` |
+| PATCH | `/spaces/:id` | CHIEF, ADMIN | tariff change: CHIEF only; `isActive` to (de)activate |
+| PUT | `/spaces/:id/camera` | CHIEF, ADMIN | `{cameraId|null, zoneCode?}` |
+| POST | `/spaces/:id/occupancy` | CHIEF, ADMIN | manual on-site check `{state}` |
+| POST | `/spaces/:id/regenerate-qr` | CHIEF | |
+| GET/POST/PATCH | `/rows`, `/rows/:id` | read: all; write: CHIEF, ADMIN | |
+| PUT | `/rows/:id/cashiers` | CHIEF | cashier assignment |
+| GET/POST/PATCH | `/cameras`, `/cameras/:id` | CHIEF, ADMIN | `streamConfigRef` rejects URLs/passwords |
+| PUT | `/cameras/:id/spaces` | CHIEF, ADMIN | `{spaceIds}` |
+| GET | `/payments?search&method&status&from&to` | all | CASHIER: own only |
+| GET | `/payments/:id` | all | CASHIER: own only; receipt, cancellation, provider txns, audit |
+| GET | `/payments/providers` | all | integration status |
+| POST | `/payments/cash` | CASHIER | `{spaceId, amount, idempotencyKey(uuid), note?}` → 201 `{payment, receipt}`; replay → 200; already paid → 409; amount≠tariff → 400; no open shift → 409 |
+| POST | `/payments/:id/cancel` | CHIEF | `{reason (≥5)}` — status → CANCELLED, record kept |
+| POST | `/payments/demo-electronic` | CASHIER, CHIEF | DEMO only. `{spaceId, method: PAYME|CLICK|UZUM, idempotencyKey}` |
+| POST | `/payments/:id/demo-callback` | CASHIER, CHIEF | DEMO only. `{outcome}` — idempotent |
+| GET | `/cashier/summary`, `/cashier/shifts` | CASHIER | |
+| POST | `/cashier/shift/open`, `/cashier/shift/close` | CASHIER | |
+| GET | `/alerts?status(ACTIVE|…)&type&severity&search` | CHIEF, ADMIN | |
+| GET | `/alerts/:id` | CHIEF, ADMIN | events, escalations, complaint |
+| POST | `/alerts/:id/investigate` · `/note` · `/resolve` · `/reject` | CHIEF, ADMIN | resolve of unpaid alert refused (409) while space still occupied & uncovered; reject records manual FREE |
+| POST | `/alerts/:id/escalate` | ADMIN | manual escalation to CHIEF |
+| GET | `/complaints?status(OPEN|…)` · PATCH `/complaints/:id` | CHIEF, ADMIN | |
+| GET | `/exemptions?status(ACTIVE|…)` | CHIEF, ADMIN | |
+| POST | `/exemptions` | CHIEF (approved) / ADMIN (pending request) | `{spaceId, reason, validFrom?, validUntil?}` |
+| POST | `/exemptions/:id/decision` · `/revoke` | CHIEF | |
+| GET | `/reports` · `/reports/:type?from&to&search&format=csv` | CHIEF | types: daily-summary, revenue-by-method, revenue-by-cashier, payment-by-row, unpaid-occupied, camera-availability, complaints, exemptions, cancelled, audit |
+| GET/POST/PATCH | `/users` | CHIEF | no self-registration |
+| GET | `/audit` | CHIEF | read-only |
+| GET | `/settings` | CHIEF, ADMIN | market, settings, tariffs, cycles, providers |
+| PUT | `/settings/values/:key` · PATCH `/settings/market` · POST/PATCH `/settings/tariffs` · POST `/settings/cycles` · POST `/settings/cycles/:id/activate` | CHIEF | |
+| GET | `/notifications` · POST `/notifications/read-all` · `/notifications/:id/read` | any | |
+| POST | `/demo/occupancy` · `/demo/cameras/:id/status` · `/demo/alerts/:id/fast-forward` | CHIEF, ADMIN | DEMO_MODE only, recorded as DEMO |
+
+## Public (seller QR) — no login, rate limited
+| GET | `/public/spaces/:token` | payment state, masked receipt number |
+| POST | `/public/spaces/:token/complaints` | `{type: CASH_PAID_NO_RECEIPT, description?, contactPhone?}` — 5 / 15 min / IP |
+| GET | `/public/receipts/:token` | receipt verification |
+
+## Internal (vision service) — header `X-Internal-Api-Key`
+| GET | `/internal/vision/config` |
+| POST | `/internal/vision/observations` |
+| POST | `/internal/vision/heartbeat` |
+Blocked at Nginx for external traffic.
+
+## Webhooks
+`POST /webhooks/payments/{payme|click|uzum}` → 503 until an adapter is implemented and enabled.
+
+## Realtime (Socket.IO, path `/socket.io`, cookie auth)
+Events: `space:updated`, `payment:created`, `payment:updated`, `alert:created`, `alert:updated`, `camera:updated`, `notification:new`.

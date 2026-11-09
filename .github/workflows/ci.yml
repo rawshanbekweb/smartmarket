@@ -1,8 +1,7 @@
 name: CI
 
+# main is covered by deploy-render.yml (CI → deploy); this runs for PRs and as a reusable job.
 on:
-  push:
-    branches: [main]
   pull_request:
   workflow_call:
 

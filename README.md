@@ -91,7 +91,9 @@ docker compose exec api node dist/demo/seedCli.js
 ```
 DEMO ma'lumotlari hech qachon avtomatik yuklanmaydi.
 
-Bu lokal/staging stack. **Production (VPS, HTTPS, GitHub Actions orqali deploy, zaxira nusxa):** [docs/DEPLOY.md](docs/DEPLOY.md).
+Bu lokal/staging stack. Deploy:
+- **Bepul pilot (Render + Supabase, GitHub Actions orqali avtomatik deploy, shifrlangan kunlik backup):** [docs/DEPLOY-FREE.md](docs/DEPLOY-FREE.md)
+- **O'z server (O'zbekistondagi VPS, real ishga tushirish uchun):** [docs/DEPLOY.md](docs/DEPLOY.md)
 
 ## 5. Tekshiruvlar
 

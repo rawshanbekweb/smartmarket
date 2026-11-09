@@ -1,0 +1,28 @@
+name: Deploy (Render)
+
+# Every push to main that passes CI is deployed to the free Render service.
+on:
+  push:
+    branches: [main]
+  workflow_dispatch:
+
+concurrency:
+  group: deploy-render
+  cancel-in-progress: false
+
+jobs:
+  ci:
+    uses: ./.github/workflows/ci.yml
+
+  deploy:
+    needs: ci
+    runs-on: ubuntu-latest
+    environment: production
+    steps:
+      - name: Trigger Render deploy
+        env:
+          HOOK: ${{ secrets.RENDER_DEPLOY_HOOK_URL }}
+        run: |
+          if [ -z "$HOOK" ]; then echo "RENDER_DEPLOY_HOOK_URL secret is not set — skipping deploy"; exit 0; fi
+          curl -fsS -X POST "$HOOK" > /dev/null
+          echo "Deploy triggered; follow it in the Render dashboard."

@@ -20,9 +20,12 @@ const schema = z.object({
   // Reverse proxies in front of the API (nginx = 1; Caddy → nginx = 2). Wrong values
   // make every client share the proxy's IP in rate limits and audit logs.
   TRUST_PROXY_HOPS: z.coerce.number().int().min(0).max(5).default(1),
+  // Built web app to serve from the API process (single-service hosting); unset behind nginx.
+  WEB_DIST_DIR: z.string().optional(),
 });
 
-const parsed = schema.safeParse(process.env);
+// PaaS hosts (Render, Koyeb, ...) assign the port through PORT.
+const parsed = schema.safeParse({ ...process.env, API_PORT: process.env.API_PORT ?? process.env.PORT });
 if (!parsed.success) {
   console.error('Invalid environment configuration:', parsed.error.flatten().fieldErrors);
   process.exit(1);

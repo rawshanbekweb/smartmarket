@@ -6,7 +6,7 @@ npm workspaces monorepo: `apps/api` (Express + Prisma + PostgreSQL), `apps/web` 
 - `npm run dev` — API (4000) + web (5173, proxies `/api` and `/socket.io`)
 - `npm run db:deploy` / `npm run db:migrate` / `npm run db:seed` (DEMO only, wipes all tables)
 - `npm run setup:production -- --market … --name … --username …` — first CHIEF + market on an empty real DB
-- Deploy: tag `v*` → `.github/workflows/deploy.yml` → `infrastructure/deploy/deploy.sh` on the VPS (see `docs/DEPLOY.md`).
+- Deploy (pilot): push to main → CI → Render deploy hook (`render.yaml`, `infrastructure/docker/app.Dockerfile`; the API serves the SPA via `WEB_DIST_DIR`), DB on Supabase — `docs/DEPLOY-FREE.md`. Own VPS: manual `Deploy (VPS)` workflow — `docs/DEPLOY.md`.
 - `npm test` — Vitest against `smart_market_test` DB (never the dev DB)
 - `npm run typecheck`, `npm run lint`, `npm run build`
 - On Windows, stop the running API before `npm install` / `prisma generate` (the engine DLL is locked).

@@ -1,0 +1,39 @@
+name: Database backup
+
+# Supabase's free plan has no daily backups. This job dumps the database every night,
+# encrypts the dump (AES-256, passphrase in secrets) and keeps it as a workflow artifact.
+# Download: Actions → Database backup → run → Artifacts.  Decrypt + restore: docs/DEPLOY-FREE.md
+on:
+  schedule:
+    - cron: "0 21 * * *" # 02:00 Tashkent
+  workflow_dispatch:
+
+jobs:
+  backup:
+    runs-on: ubuntu-latest
+    timeout-minutes: 15
+    env:
+      DB_URL: ${{ secrets.BACKUP_DATABASE_URL }}
+      PASSPHRASE: ${{ secrets.BACKUP_PASSPHRASE }}
+    steps:
+      - name: Check secrets
+        run: |
+          if [ -z "$DB_URL" ] || [ -z "$PASSPHRASE" ]; then
+            echo "BACKUP_DATABASE_URL / BACKUP_PASSPHRASE secrets are not set" >&2; exit 1
+          fi
+      - name: Dump (pg_dump 17 handles Supabase 15/17 servers)
+        run: |
+          export URL="$(printf '%s' "$DB_URL" | sed 's/[?&]schema=[^&]*//')"
+          export FILE="smart_market_$(date -u +%Y-%m-%d_%H%M).dump"
+          docker run --rm -e URL -e FILE -v "$PWD:/out" postgres:17-alpine \
+            sh -c 'pg_dump --format=custom --compress=9 --no-owner --schema=public --file="/out/$FILE" "$URL" && pg_restore --list "/out/$FILE" > /dev/null'
+          gpg --batch --yes --symmetric --cipher-algo AES256 --passphrase "$PASSPHRASE" -o "$FILE.gpg" "$FILE"
+          rm "$FILE"
+          echo "FILE=$FILE.gpg" >> "$GITHUB_ENV"
+          ls -lh "$FILE.gpg"
+      - uses: actions/upload-artifact@v4
+        with:
+          name: ${{ env.FILE }}
+          path: ${{ env.FILE }}
+          retention-days: 30
+          if-no-files-found: error

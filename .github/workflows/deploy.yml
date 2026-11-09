@@ -1,10 +1,9 @@
-name: Deploy
+name: Deploy (VPS)
 
-# Release:  git tag v1.0.0 && git push origin v1.0.0
-# Redeploy an existing version: Actions → Deploy → Run workflow → tag
+# Own-server deployment (docs/DEPLOY.md). Manual while the pilot runs on the free
+# Render stack: Actions → Deploy (VPS) → Run workflow → tag.
+# To make it automatic again add:  push: { tags: ["v*"] }
 on:
-  push:
-    tags: ["v*"]
   workflow_dispatch:
     inputs:
       tag:

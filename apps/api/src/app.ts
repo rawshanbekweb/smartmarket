@@ -1,3 +1,4 @@
+import path from 'path';
 import express from 'express';
 import helmet from 'helmet';
 import cors from 'cors';
@@ -32,7 +33,9 @@ export function createApp() {
   app.disable('x-powered-by');
   app.set('trust proxy', env.TRUST_PROXY_HOPS);
 
+  // JSON API: nothing may be rendered or framed.
   app.use(
+    '/api',
     helmet({
       contentSecurityPolicy: { directives: { defaultSrc: ["'none'"], frameAncestors: ["'none'"] } },
       crossOriginResourcePolicy: { policy: 'same-site' },
@@ -87,6 +90,43 @@ export function createApp() {
   app.use('/api/demo', demoRouter);
 
   app.use('/api', (_req, _res, next) => next(notFound('API yo\'li topilmadi')));
+  if (env.WEB_DIST_DIR) serveSpa(app, env.WEB_DIST_DIR);
   app.use(errorHandler);
   return app;
+}
+
+/**
+ * Single-service hosting (e.g. Render): the API also serves the built React app, so
+ * the session cookie and Socket.IO stay same-origin. In the VPS stack nginx does this.
+ */
+function serveSpa(app: express.Express, dir: string) {
+  const root = path.resolve(dir);
+  app.use(
+    helmet({
+      contentSecurityPolicy: {
+        directives: {
+          defaultSrc: ["'self'"],
+          scriptSrc: ["'self'"],
+          // Ant Design injects runtime styles; Inter is loaded from Google Fonts.
+          styleSrc: ["'self'", "'unsafe-inline'", 'https://fonts.googleapis.com'],
+          fontSrc: ["'self'", 'https://fonts.gstatic.com', 'data:'],
+          imgSrc: ["'self'", 'data:', 'blob:'],
+          connectSrc: ["'self'"],
+          objectSrc: ["'none'"],
+          baseUri: ["'self'"],
+          frameAncestors: ["'none'"],
+          // Only behind HTTPS; over plain HTTP it would break every asset request.
+          upgradeInsecureRequests: env.COOKIE_SECURE ? [] : null,
+        },
+      },
+    }),
+  );
+  app.use('/assets', express.static(path.join(root, 'assets'), { immutable: true, maxAge: '30d' }));
+  app.use('/assets', (_req, res) => res.status(404).end());
+  app.use(express.static(root, { index: false, maxAge: 0 }));
+  // Client-side routes (/cashier, /qr/:token, ...) → index.html
+  app.get(/^\/(?!api\/|socket\.io\/).*/, (_req, res) => {
+    res.setHeader('Cache-Control', 'no-cache');
+    res.sendFile(path.join(root, 'index.html'));
+  });
 }

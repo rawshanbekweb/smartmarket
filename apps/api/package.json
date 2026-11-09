@@ -12,6 +12,7 @@
     "db:migrate": "prisma migrate dev",
     "db:deploy": "prisma migrate deploy",
     "db:seed": "tsx src/demo/seedCli.ts",
+    "setup:production": "tsx src/cli/bootstrap.ts",
     "db:reset": "prisma migrate reset --force --skip-seed && tsx src/demo/seedCli.ts",
     "postinstall": "prisma generate"
   },

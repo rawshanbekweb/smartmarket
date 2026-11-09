@@ -11,9 +11,10 @@ Base URL: `/api`. JSON in/out. Errors: `{ "error": { "code", "message", "details
 | Method | Path | Roles | Notes |
 |---|---|---|---|
 | GET | `/health` | public | DB status, demoMode |
-| POST | `/auth/login` | public | rate limited (20 / 15 min) |
+| POST | `/auth/login` | public | rate limited (20 / 15 min); per-account lockout → `423 ACCOUNT_LOCKED` |
 | POST | `/auth/logout` | any | |
-| GET | `/auth/me` | any | user, market, demoMode |
+| POST | `/auth/password` | any | `{currentPassword, newPassword}`; revokes other sessions, re-issues the cookie |
+| GET | `/auth/me` | any | user (incl. `mustChangePassword`), market, demoMode |
 | GET | `/dashboard/summary` | CHIEF, ADMIN | KPIs (live from DB) |
 | GET | `/dashboard/occupancy` | all | rows → spaces with derived status |
 | GET | `/dashboard/revenue?from&to` | CHIEF, ADMIN | daily cash / electronic |
@@ -48,7 +49,8 @@ Base URL: `/api`. JSON in/out. Errors: `{ "error": { "code", "message", "details
 | POST | `/exemptions` | CHIEF (approved) / ADMIN (pending request) | `{spaceId, reason, validFrom?, validUntil?}` |
 | POST | `/exemptions/:id/decision` · `/revoke` | CHIEF | |
 | GET | `/reports` · `/reports/:type?from&to&search&format=csv` | CHIEF | types: daily-summary, revenue-by-method, revenue-by-cashier, payment-by-row, unpaid-occupied, camera-availability, complaints, exemptions, cancelled, audit |
-| GET/POST/PATCH | `/users` | CHIEF | no self-registration |
+| GET/POST/PATCH | `/users` | CHIEF | no self-registration; new users / password resets get `mustChangePassword`; reset, deactivation or role change revokes sessions |
+| POST | `/users/:id/unlock` | CHIEF | clear a login lockout |
 | GET | `/audit` | CHIEF | read-only |
 | GET | `/settings` | CHIEF, ADMIN | market, settings, tariffs, cycles, providers |
 | PUT | `/settings/values/:key` · PATCH `/settings/market` · POST/PATCH `/settings/tariffs` · POST `/settings/cycles` · POST `/settings/cycles/:id/activate` | CHIEF | |
@@ -71,3 +73,5 @@ Blocked at Nginx for external traffic.
 
 ## Realtime (Socket.IO, path `/socket.io`, cookie auth)
 Events: `space:updated`, `payment:created`, `payment:updated`, `alert:created`, `alert:updated`, `camera:updated`, `notification:new`.
+
+**Forced password change:** while `user.mustChangePassword` is true every route except `/auth/*` answers `403 PASSWORD_CHANGE_REQUIRED`.

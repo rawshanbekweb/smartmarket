@@ -188,6 +188,26 @@ const D: Record<string, [string, string]> = {
   'cash.alreadyPaid': ["Bu joy uchun amaldagi to'lov mavjud", 'Для этого места уже есть действующий платёж'],
   'cash.success': ["To'lov qabul qilindi", 'Платёж принят'],
   'cash.demoElectronic': ["DEMO elektron to'lov simulyatori", 'ДЕМО-симулятор электронной оплаты'],
+  // password
+  'pw.title': ["Parolni o'zgartirish", 'Сменить пароль'],
+  'pw.current': ['Joriy parol', 'Текущий пароль'],
+  'pw.new': ['Yangi parol', 'Новый пароль'],
+  'pw.confirm': ['Yangi parolni takrorlang', 'Повторите новый пароль'],
+  'pw.policy': ['Kamida 10 belgi: katta va kichik harf hamda raqam', 'Не менее 10 символов: заглавные и строчные буквы и цифра'],
+  'pw.mismatch': ['Parollar mos kelmadi', 'Пароли не совпадают'],
+  'pw.submit': ['Parolni saqlash', 'Сохранить пароль'],
+  'pw.changed': ["Parol o'zgartirildi", 'Пароль изменён'],
+  'pw.otherDevices': ["Parol o'zgargach, boshqa qurilmalardagi seanslar yopiladi.", 'После смены пароля сеансы на других устройствах будут завершены.'],
+  'pw.forcedTitle': ['Parolni almashtiring', 'Смените пароль'],
+  'pw.forcedText': ["Sizga berilgan boshlang'ich parolni o'zingiz biladigan yangi parolga almashtiring. Shundan keyingina tizimdan foydalanish mumkin.", 'Замените выданный вам начальный пароль на собственный. Только после этого можно пользоваться системой.'],
+  // users
+  'users.locked': ['Bloklangan', 'Заблокирован'],
+  'users.unlock': ['Blokdan chiqarish', 'Разблокировать'],
+  'users.unlocked': ['Akkaunt blokdan chiqarildi', 'Аккаунт разблокирован'],
+  'users.mustChange': ['Parolni almashtirishi kerak', 'Должен сменить пароль'],
+  'users.initialPassword': ["Boshlang'ich parol", 'Начальный пароль'],
+  'users.resetPassword': ["Yangi parol (o'zgartirmaslik uchun bo'sh qoldiring)", 'Новый пароль (оставьте пустым, чтобы не менять)'],
+  'users.passwordNote': ["Foydalanuvchi birinchi kirishda uni o'z parolga almashtiradi. Parol tiklansa, uning barcha seanslari yopiladi.", 'Пользователь сменит его при первом входе. При сбросе пароля все его сеансы завершаются.'],
 };
 
 interface I18nCtx {

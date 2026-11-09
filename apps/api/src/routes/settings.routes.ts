@@ -6,7 +6,7 @@ import { ah } from '../middleware/common';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { badRequest, notFound } from '../lib/errors';
 import { audit } from '../lib/audit';
-import { listSettings, SETTING_DEFAULTS, type SettingKey } from '../services/settings.service';
+import { listSettings, SETTING_DEFAULTS, validateSettingValue, type SettingKey } from '../services/settings.service';
 import { getMarket } from '../services/market.service';
 import { providerStatusList } from '../integrations/payments/adapters';
 import { env } from '../config/env';
@@ -48,6 +48,8 @@ settingsRouter.put(
       typeof def === 'number'
         ? z.number().int().min(1).max(10_000).parse(req.body?.value)
         : z.string().trim().min(1).max(300).parse(req.body?.value);
+    const invalid = validateSettingValue(key, value);
+    if (invalid) throw badRequest(invalid);
     const before = await prisma.systemSetting.findUnique({ where: { key } });
     await prisma.$transaction(async (tx) => {
       await tx.systemSetting.upsert({

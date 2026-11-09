@@ -5,6 +5,7 @@ import { useAuth, type Role } from './lib/auth';
 import { AppLayout, homeFor } from './components/AppLayout';
 import { Forbidden } from './components/common';
 import { LoginPage } from './pages/LoginPage';
+import { ForcedPasswordChange } from './components/ChangePassword';
 
 const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const SpacesPage = lazy(() => import('./pages/SpacesPage'));
@@ -69,6 +70,8 @@ function RequireAuth({ children }: { children: ReactNode }) {
   }, [loggedIn]);
   if (loading) return <Loading />;
   if (!me) return <Navigate to="/login" replace state={{ from: loc.pathname }} />;
+  // The API refuses everything else until the initial password is replaced.
+  if (me.user.mustChangePassword) return <ForcedPasswordChange />;
   return <>{children}</>;
 }
 

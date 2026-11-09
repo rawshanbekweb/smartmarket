@@ -4,7 +4,7 @@ import { minutes } from '../lib/time';
 import { audit } from '../lib/audit';
 import { logger } from '../lib/logger';
 import { emit } from '../realtime/socket';
-import { getSetting } from './settings.service';
+import { getSetting, isWithinWorkingHours } from './settings.service';
 import { isCovered } from './spaceStatus.service';
 import { notifyRoles, pushNotifications } from './notification.service';
 import type { AuthUser } from '../middleware/auth';
@@ -19,11 +19,13 @@ export const ACTIVE_ALERT_STATUSES: AlertStatus[] = ['OPEN', 'ADMIN_NOTIFIED', '
 export async function ensureUnpaidAlert(db: Db, spaceId: string, now = new Date(), isDemo = false) {
   const space = await db.tradingSpace.findUnique({
     where: { id: spaceId },
-    include: { cameraZone: { include: { camera: true } } },
+    include: { cameraZone: { include: { camera: true } }, market: { select: { utcOffsetMinutes: true } } },
   });
   if (!space || !space.isActive || space.occupancyState !== 'OCCUPIED') return null;
   const cam = space.cameraZone?.camera;
   if (cam && (cam.status === 'OFFLINE' || cam.status === 'MAINTENANCE')) return null;
+  // Goods left overnight are not unpaid trading: only open new alerts during working hours.
+  if (!(await isWithinWorkingHours(now, space.market.utcOffsetMinutes, db))) return null;
   if (await isCovered(db, spaceId, now)) return null;
 
   const existing = await db.alert.findFirst({

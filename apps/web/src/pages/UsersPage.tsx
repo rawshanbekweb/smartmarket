@@ -18,6 +18,8 @@ interface User {
   isActive: boolean;
   isDemo: boolean;
   lastLoginAt: string | null;
+  lockedUntil: string | null;
+  mustChangePassword: boolean;
   createdAt: string;
 }
 
@@ -40,6 +42,12 @@ export default function UsersPage() {
     onSuccess: () => { message.success('Saqlandi'); setEditing(null); qc.invalidateQueries({ queryKey: ['users'] }); },
     onError: (e) => message.error(errorMessage(e)),
   });
+  const unlock = useMutation({
+    mutationFn: (id: string) => post(`/users/${id}/unlock`),
+    onSuccess: () => { message.success(t('users.unlocked')); qc.invalidateQueries({ queryKey: ['users'] }); },
+    onError: (e) => message.error(errorMessage(e)),
+  });
+  const isLocked = (u: User) => !!u.lockedUntil && new Date(u.lockedUntil) > new Date();
   const isNew = editing === 'new';
 
   return (
@@ -62,9 +70,28 @@ export default function UsersPage() {
               { title: 'Login', dataIndex: 'username', render: (v) => <span className="font-mono text-xs">{v}</span> },
               { title: 'Rol', key: 'r', render: (_, u) => <Chip tone={u.role === 'CHIEF' ? 'violet' : u.role === 'MARKET_ADMIN' ? 'info' : 'neutral'} dot={false}>{t(`role.${u.role}`)}</Chip> },
               { title: 'Telefon', dataIndex: 'phone', render: (v) => v ?? '—' },
-              { title: t('c.status'), key: 's', render: (_, u) => (u.isActive ? <Chip tone="ok">{t('c.active')}</Chip> : <Chip tone="neutral">{t('c.inactive')}</Chip>) },
+              {
+                title: t('c.status'),
+                key: 's',
+                render: (_, u) => (
+                  <span className="flex flex-wrap gap-1">
+                    {u.isActive ? <Chip tone="ok">{t('c.active')}</Chip> : <Chip tone="neutral">{t('c.inactive')}</Chip>}
+                    {isLocked(u) && <Chip tone="bad">{t('users.locked')}</Chip>}
+                    {u.mustChangePassword && <Chip tone="warn" dot={false}>{t('users.mustChange')}</Chip>}
+                  </span>
+                ),
+              },
               { title: 'Oxirgi kirish', key: 'l', render: (_, u) => fmtDateTime(u.lastLoginAt) },
-              { title: '', key: 'a', render: (_, u) => <Button size="small" onClick={() => { form.setFieldsValue({ ...u, password: '' }); setEditing(u); }}>{t('c.edit')}</Button> },
+              {
+                title: '',
+                key: 'a',
+                render: (_, u) => (
+                  <span className="flex gap-1">
+                    {isLocked(u) && <Button size="small" loading={unlock.isPending && unlock.variables === u.id} onClick={() => unlock.mutate(u.id)}>{t('users.unlock')}</Button>}
+                    <Button size="small" onClick={() => { form.setFieldsValue({ ...u, password: '' }); setEditing(u); }}>{t('c.edit')}</Button>
+                  </span>
+                ),
+              },
             ]}
           />
         )}
@@ -80,7 +107,12 @@ export default function UsersPage() {
             <Form.Item name="phone" label="Telefon"><Input placeholder="+998 90 123 45 67" /></Form.Item>
             {!isNew && <Form.Item name="isActive" label={t('c.active')} valuePropName="checked"><Switch disabled={(editing as User)?.id === me?.user.id} /></Form.Item>}
           </div>
-          <Form.Item name="password" label={isNew ? 'Parol' : "Yangi parol (o'zgartirmaslik uchun bo'sh qoldiring)"} rules={[{ required: isNew, min: 8, message: 'Kamida 8 belgi, harf va raqam' }]}>
+          <Form.Item
+            name="password"
+            label={isNew ? t('users.initialPassword') : t('users.resetPassword')}
+            extra={t('users.passwordNote')}
+            rules={[{ required: isNew }, { pattern: /^(?=.*[a-z])(?=.*[A-Z])(?=.*\d).{10,128}$/, message: t('pw.policy') }]}
+          >
             <Input.Password autoComplete="new-password" />
           </Form.Item>
         </Form>

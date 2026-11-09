@@ -127,6 +127,12 @@ model User {
   isActive     Boolean   @default(true)
   isDemo       Boolean   @default(false)
   lastLoginAt  DateTime?
+  // Bumped on password reset / deactivation / role change: invalidates issued sessions.
+  sessionVersion     Int       @default(0)
+  failedLoginCount   Int       @default(0)
+  lockedUntil        DateTime?
+  mustChangePassword Boolean   @default(false)
+  passwordChangedAt  DateTime?
   createdAt    DateTime  @default(now())
   updatedAt    DateTime  @updatedAt
 

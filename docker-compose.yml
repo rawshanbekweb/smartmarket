@@ -1,7 +1,8 @@
 # SMART MARKET — local / staging stack
 #   cp .env.example .env   (fill in secrets)
 #   docker compose up -d --build
-#   docker compose exec api node dist/demo/seedCli.js   # DEMO data only, requires DEMO_MODE=true
+#   docker compose exec -e BOOTSTRAP_CHIEF_PASSWORD='...' api node dist/cli/bootstrap.js --market "..." --name "..." --username rahbar
+#   docker compose exec api node dist/demo/seedCli.js   # DEMO data only, requires DEMO_MODE=true (never in production)
 #   open http://localhost:8080
 services:
   db:

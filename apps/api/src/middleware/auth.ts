@@ -3,7 +3,7 @@ import jwt from 'jsonwebtoken';
 import type { Role } from '@prisma/client';
 import { env } from '../config/env';
 import { prisma } from '../lib/prisma';
-import { forbidden, unauthorized } from '../lib/errors';
+import { AppError, forbidden, unauthorized } from '../lib/errors';
 
 export const AUTH_COOKIE = 'sm_session';
 
@@ -12,6 +12,8 @@ export interface AuthUser {
   role: Role;
   fullName: string;
   username: string;
+  sessionVersion: number;
+  mustChangePassword: boolean;
 }
 
 declare module 'express-serve-static-core' {
@@ -21,7 +23,7 @@ declare module 'express-serve-static-core' {
 }
 
 export function signSession(user: AuthUser) {
-  return jwt.sign({ sub: user.id, role: user.role }, env.JWT_SECRET, {
+  return jwt.sign({ sub: user.id, role: user.role, sv: user.sessionVersion }, env.JWT_SECRET, {
     expiresIn: `${env.JWT_EXPIRES_IN_HOURS}h`,
     issuer: 'smart-market',
   });
@@ -44,17 +46,38 @@ export async function userFromToken(token: string | undefined): Promise<AuthUser
     const payload = jwt.verify(token, env.JWT_SECRET, { issuer: 'smart-market' }) as jwt.JwtPayload;
     const user = await prisma.user.findUnique({ where: { id: String(payload.sub) } });
     if (!user || !user.isActive) return null;
-    return { id: user.id, role: user.role, fullName: user.fullName, username: user.username };
+    // Sessions issued before a password reset / deactivation / role change are revoked.
+    if ((payload.sv ?? 0) !== user.sessionVersion) return null;
+    return {
+      id: user.id,
+      role: user.role,
+      fullName: user.fullName,
+      username: user.username,
+      sessionVersion: user.sessionVersion,
+      mustChangePassword: user.mustChangePassword,
+    };
   } catch {
     return null;
   }
 }
 
-export async function requireAuth(req: Request, _res: Response, next: NextFunction) {
+/** Valid session, even one that still has to change its password (used by /api/auth/*). */
+export async function requireSession(req: Request, _res: Response, next: NextFunction) {
   const user = await userFromToken(req.cookies?.[AUTH_COOKIE]);
   if (!user) return next(unauthorized());
   req.user = user;
   next();
+}
+
+/** Valid session with no pending forced password change. */
+export async function requireAuth(req: Request, res: Response, next: NextFunction) {
+  await requireSession(req, res, (err?: unknown) => {
+    if (err) return next(err);
+    if (req.user!.mustChangePassword) {
+      return next(new AppError(403, 'PASSWORD_CHANGE_REQUIRED', "Davom etish uchun parolingizni almashtiring"));
+    }
+    next();
+  });
 }
 
 /** Backend authorization guard — every sensitive route must declare allowed roles. */

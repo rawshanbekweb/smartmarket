@@ -5,7 +5,7 @@ import { get, post } from './api';
 export type Role = 'CHIEF' | 'MARKET_ADMIN' | 'CASHIER';
 
 export interface Me {
-  user: { id: string; role: Role; fullName: string; username: string };
+  user: { id: string; role: Role; fullName: string; username: string; mustChangePassword: boolean };
   demoMode: boolean;
   market: { id: string; name: string; address: string | null; isDemo: boolean } | null;
 }

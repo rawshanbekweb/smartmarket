@@ -26,7 +26,7 @@ export function initRealtime(server: HttpServer) {
   io.use(async (socket, next) => {
     const cookies = parseCookie(socket.handshake.headers.cookie ?? '');
     const user = await userFromToken(cookies[AUTH_COOKIE]);
-    if (!user) return next(new Error('unauthorized'));
+    if (!user || user.mustChangePassword) return next(new Error('unauthorized'));
     socket.data.user = user;
     next();
   });

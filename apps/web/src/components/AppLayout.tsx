@@ -4,8 +4,9 @@ import { Avatar, Badge, Button, Drawer, Dropdown, Input, Layout, Menu, Popover, 
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
   LayoutDashboard, Grid3x3, Rows3, Cctv, CreditCard, Wallet, BellRing, MessageSquareWarning, BadgePercent,
-  FileBarChart, Users, ScrollText, Settings, Bell, LogOut, Search, Menu as MenuIcon, Store, CalendarDays,
+  FileBarChart, Users, ScrollText, Settings, Bell, LogOut, Search, Menu as MenuIcon, Store, CalendarDays, KeyRound,
 } from 'lucide-react';
+import { ChangePasswordModal } from './ChangePassword';
 import { useAuth, type Role } from '../lib/auth';
 import { useI18n } from '../lib/i18n';
 import { get, post } from '../lib/api';
@@ -126,6 +127,7 @@ export function AppLayout() {
   const loc = useLocation();
   const nav = useNavigate();
   const [mobileOpen, setMobileOpen] = useState(false);
+  const [passwordOpen, setPasswordOpen] = useState(false);
   useRealtime(!!me);
   if (!me) return null;
   const role = me.user.role;
@@ -209,6 +211,7 @@ export function AppLayout() {
               items: [
                 { key: 'who', label: <div className="text-xs text-slate-500">@{me.user.username} · {t(`role.${role}`)}</div>, disabled: true },
                 { type: 'divider' },
+                { key: 'password', icon: <KeyRound size={14} />, label: t('pw.title'), onClick: () => setPasswordOpen(true) },
                 { key: 'logout', icon: <LogOut size={14} />, label: t('top.logout'), danger: true, onClick: async () => { await logout(); nav('/login'); } },
               ],
             }}
@@ -234,6 +237,7 @@ export function AppLayout() {
           </Suspense>
         </Content>
       </Layout>
+      <ChangePasswordModal open={passwordOpen} onClose={() => setPasswordOpen(false)} />
     </Layout>
   );
 }

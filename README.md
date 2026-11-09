@@ -110,6 +110,9 @@ Testlar `DATABASE_URL` dagi baza nomini `smart_market_test` ga almashtiradi (yok
 | Naqd to'lov + chek + smena (kassa) | ✅ Ishlaydi |
 | To'lovni bekor qilish (faqat CHIEF, sabab bilan, yozuv o'chirilmaydi) | ✅ Ishlaydi |
 | Ogohlantirishlar: 5 daq → admin, +10 daq → rahbar (DB asosidagi, restartga chidamli) | ✅ Ishlaydi |
+| Bozor ish vaqti (ish vaqtidan tashqarida to'lovsiz bandlik ogohlantirishi yaratilmaydi) | ✅ Ishlaydi |
+| Akkaunt himoyasi: bloklash, sessiyalarni bekor qilish, birinchi kirishda parolni almashtirish | ✅ Ishlaydi |
+| Production bootstrap (`setup:production`), zaxira nusxa skriptlari | ✅ Ishlaydi |
 | Shikoyatlar (QR, rate limit), imtiyozlar (faqat CHIEF tasdiqlaydi) | ✅ Ishlaydi |
 | Hisobotlar + CSV eksport | ✅ Ishlaydi |
 | UZ / RU interfeys | ✅ Asosiy navigatsiya, holatlar, KPI, kassa, QR sahifa. Ba'zi ichki sahifa matnlari hozircha faqat o'zbekcha |
@@ -121,12 +124,18 @@ Testlar `DATABASE_URL` dagi baza nomini `smart_market_test` ga almashtiradi (yok
 
 ## 7. DEMO dan haqiqiy ma'lumotga o'tish
 
-1. Yangi (bo'sh) baza yarating, `DEMO_MODE=false`, `NODE_ENV=production`, kuchli `JWT_SECRET`, `COOKIE_SECURE=true` (HTTPS ortida).
+1. Yangi (bo'sh) baza yarating, `DEMO_MODE=false`, `NODE_ENV=production`, kuchli `JWT_SECRET` va `VISION_API_KEY` (`openssl rand -hex 48`), `COOKIE_SECURE=true` (HTTPS ortida), `CORS_ORIGINS` = haqiqiy HTTPS manzil. Production rejimida server DEMO_MODE yoki `CHANGE_ME` kalitlar bilan ishga tushmaydi.
 2. `npm run db:deploy` (yoki Docker) — migratsiyalar.
-3. Birinchi rahbar hisobini yarating (bir martalik skript yoki `psql` orqali bcrypt hash bilan), so'ng interfeysdan qolgan foydalanuvchilarni qo'shing.
-4. Sozlamalar → Bozor, Tarif (tasdiqlangan summa), **To'lov sikli** (tasdiqlangan muddat bilan yangi sikl yarating va faollashtiring).
+3. Bozor va birinchi rahbar hisobini yarating (parol yashirin so'raladi; DEMO ma'lumotli bazada ishlamaydi):
+   ```bash
+   npm run setup:production -- --market "Bozor nomi" --address "Manzil" --name "F.I.Sh." --username rahbar
+   # Docker:  docker compose exec -e BOOTSTRAP_CHIEF_PASSWORD='...' api node dist/cli/bootstrap.js --market "..." --name "..." --username rahbar
+   ```
+   So'ng interfeysdan qolgan foydalanuvchilarni qo'shing — ular birinchi kirishda berilgan parolni o'zlarinikiga almashtiradi.
+4. Sozlamalar → Bozor, Tarif (tasdiqlangan summa), **To'lov sikli** (tasdiqlangan muddat bilan yangi sikl yarating va faollashtiring), **ish vaqti** (`market.workingHoursStart/End`).
 5. Qatorlar va savdo joylarini kiriting (soni kodda qattiq yozilmagan), kameralarni qo'shing va joylarga biriktiring.
 6. QR stikerlarni joy sahifasidan chop eting.
+7. Kundalik zaxira nusxani yoqing (cron): `DATABASE_URL=... infrastructure/scripts/backup.sh /var/backups/smart-market`. Tiklashni bo'sh bazada sinab ko'ring: `infrastructure/scripts/restore.sh`.
 
 ## 8. Ma'lum cheklovlar
 
@@ -136,6 +145,7 @@ Testlar `DATABASE_URL` dagi baza nomini `smart_market_test` ga almashtiradi (yok
 - Audit jurnali triggeri UPDATE/DELETE ni bloklaydi, ammo jadval egasi (superuser) TRUNCATE yoki triggerni o'chirishi mumkin — productionda API ni jadval egasi bo'lmagan alohida rol bilan ishga tushiring (`docs/SECURITY.md`).
 - Docker konfiguratsiyasi yozilgan, lekin ushbu muhitda Docker daemon o'chiq bo'lgani uchun `docker compose up` sinovdan o'tkazilmagan.
 - Bir bozor rejimi: barcha jadvallar `marketId` bilan bog'langan, lekin interfeys hozircha bitta bozorni ko'rsatadi.
-- Tun vaqtida (kunlik sikl tugagach) band holatda qolgan joylar uchun ogohlantirish yaratiladi — ish vaqti sozlamasi keyingi bosqichda.
+- Ish vaqti standart holatda 00:00–24:00 (kun bo'yi). Bozorning haqiqiy ish vaqtini Sozlamalarda kiriting, aks holda tunda qolgan mollar uchun ogohlantirish chiqadi.
+- CHIEF uchun 2FA hali yo'q.
 
 Batafsil: [docs/API.md](docs/API.md), [docs/SECURITY.md](docs/SECURITY.md), [services/vision/README.md](services/vision/README.md).

@@ -5,6 +5,7 @@ npm workspaces monorepo: `apps/api` (Express + Prisma + PostgreSQL), `apps/web` 
 ## Commands
 - `npm run dev` — API (4000) + web (5173, proxies `/api` and `/socket.io`)
 - `npm run db:deploy` / `npm run db:migrate` / `npm run db:seed` (DEMO only, wipes all tables)
+- `npm run setup:production -- --market … --name … --username …` — first CHIEF + market on an empty real DB
 - `npm test` — Vitest against `smart_market_test` DB (never the dev DB)
 - `npm run typecheck`, `npm run lint`, `npm run build`
 - On Windows, stop the running API before `npm install` / `prisma generate` (the engine DLL is locked).
@@ -14,6 +15,7 @@ npm workspaces monorepo: `apps/api` (Express + Prisma + PostgreSQL), `apps/web` 
 - Space status is derived only in `services/spaceStatus.service.ts` (`deriveStatus`).
 - Revenue counts `status = SUCCESS` only. Payments are never deleted; cancellation = status change + `PaymentCancellation` + audit (CHIEF only).
 - Every sensitive route declares `requireRole(...)`; financial service functions re-check the role.
+- Auth: `requireAuth` also blocks `mustChangePassword` users; `/api/auth/*` uses `requireSession`. Bump `sessionVersion` whenever a change must log a user out everywhere.
 - Alert escalation is driven by persisted timestamps (`adminNotifyAt`, `chiefEscalateAt`) processed by `workers/alertWorker.ts` — no per-alert `setTimeout`.
 - AI/vision may only post observations/heartbeats via `/api/internal/vision/*`; it must never touch payments.
 - Demo/simulated things must be labelled (`isDemo`, `isSimulated`, `DEMO_SIMULATOR`, UI `DemoTag`/`SimulatedNotice`). Never present simulated camera previews or payments as real.

@@ -6,6 +6,7 @@ import { ah } from '../middleware/common';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { badRequest, notFound } from '../lib/errors';
 import { audit } from '../lib/audit';
+import { BCRYPT_COST, passwordSchema as password } from '../services/auth.service';
 
 export const usersRouter = Router();
 // No self-registration: only CHIEF manages management accounts.
@@ -20,15 +21,10 @@ const publicUser = {
   isActive: true,
   isDemo: true,
   lastLoginAt: true,
+  lockedUntil: true,
+  mustChangePassword: true,
   createdAt: true,
 } as const;
-
-const password = z
-  .string()
-  .min(8, "Parol kamida 8 belgidan iborat bo'lishi kerak")
-  .max(128)
-  .regex(/[A-Za-z]/, "Parolda harf bo'lishi kerak")
-  .regex(/\d/, "Parolda raqam bo'lishi kerak");
 
 usersRouter.get(
   '/',
@@ -52,7 +48,15 @@ usersRouter.post(
       .parse(req.body);
     const user = await prisma.$transaction(async (tx) => {
       const u = await tx.user.create({
-        data: { fullName: body.fullName, username: body.username, role: body.role, phone: body.phone, passwordHash: await bcrypt.hash(body.password, 12) },
+        // The initial password is handed over by the CHIEF, so the user must replace it at first login.
+        data: {
+          fullName: body.fullName,
+          username: body.username,
+          role: body.role,
+          phone: body.phone,
+          passwordHash: await bcrypt.hash(body.password, BCRYPT_COST),
+          mustChangePassword: true,
+        },
         select: publicUser,
       });
       await audit(tx, { actor: req.user, req, action: 'USER_CREATED', entityType: 'User', entityId: u.id, summary: `${u.username} (${u.role})`, after: { ...body, password: undefined } });
@@ -81,9 +85,15 @@ usersRouter.patch(
     }
     const user = await prisma.$transaction(async (tx) => {
       const { password: pw, ...rest } = body;
+      // Reset password, deactivation or role change revokes every issued session of that user.
+      const revoke = !!pw || rest.isActive === false || (!!rest.role && rest.role !== before.role);
       const u = await tx.user.update({
         where: { id: before.id },
-        data: { ...rest, ...(pw && { passwordHash: await bcrypt.hash(pw, 12) }) },
+        data: {
+          ...rest,
+          ...(pw && { passwordHash: await bcrypt.hash(pw, BCRYPT_COST), mustChangePassword: true, failedLoginCount: 0, lockedUntil: null }),
+          ...(revoke && { sessionVersion: { increment: 1 } }),
+        },
         select: publicUser,
       });
       await audit(tx, {
@@ -96,6 +106,20 @@ usersRouter.patch(
         before,
         after: rest,
       });
+      return u;
+    });
+    res.json(user);
+  }),
+);
+
+usersRouter.post(
+  '/:id/unlock',
+  ah(async (req, res) => {
+    const before = await prisma.user.findUnique({ where: { id: req.params.id }, select: publicUser });
+    if (!before) throw notFound('Foydalanuvchi topilmadi');
+    const user = await prisma.$transaction(async (tx) => {
+      const u = await tx.user.update({ where: { id: before.id }, data: { lockedUntil: null, failedLoginCount: 0 }, select: publicUser });
+      await audit(tx, { actor: req.user, req, action: 'USER_UNLOCKED', entityType: 'User', entityId: u.id, summary: u.username, before: { lockedUntil: before.lockedUntil } });
       return u;
     });
     res.json(user);

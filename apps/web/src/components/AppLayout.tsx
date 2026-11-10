@@ -3,7 +3,7 @@ import { Link, Outlet, useLocation, useNavigate } from 'react-router-dom';
 import { Avatar, Badge, Button, Drawer, Dropdown, Input, Layout, Menu, Popover, Segmented, Skeleton, Tooltip } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import {
-  LayoutDashboard, Grid3x3, Rows3, Cctv, CreditCard, Wallet, BellRing, MessageSquareWarning, BadgePercent,
+  LayoutDashboard, Grid3x3, Rows3, Cctv, Footprints, CreditCard, Wallet, BellRing, MessageSquareWarning, BadgePercent,
   FileBarChart, Users, ScrollText, Settings, Bell, LogOut, Search, Menu as MenuIcon, Store, CalendarDays, KeyRound, HandCoins,
 } from 'lucide-react';
 import { ChangePasswordModal } from './ChangePassword';
@@ -30,6 +30,7 @@ const NAV: NavItem[] = [
   { key: '/dashboard', icon: <LayoutDashboard size={17} />, label: 'nav.dashboard', roles: MGMT, group: 'monitoring' },
   { key: '/spaces', icon: <Grid3x3 size={17} />, label: 'nav.spaces', roles: ALL, group: 'monitoring' },
   { key: '/rows', icon: <Rows3 size={17} />, label: 'nav.rows', roles: MGMT, group: 'monitoring' },
+  { key: '/round', icon: <Footprints size={17} />, label: 'nav.round', roles: MGMT, group: 'monitoring' },
   { key: '/cameras', icon: <Cctv size={17} />, label: 'nav.cameras', roles: MGMT, group: 'monitoring' },
   { key: '/cashier', icon: <Wallet size={17} />, label: 'nav.cashier', roles: ['CASHIER'], group: 'finance' },
   { key: '/payments', icon: <CreditCard size={17} />, label: 'nav.payments', roles: ALL, group: 'finance' },

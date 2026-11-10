@@ -112,6 +112,7 @@ Testlar `DATABASE_URL` dagi baza nomini `smart_market_test` ga almashtiradi (yok
 | Autentifikatsiya, RBAC, audit, sozlamalar | ✅ Ishlaydi |
 | Savdo joylari, qatorlar CRUD, QR kodlar | ✅ Ishlaydi |
 | Yangi bozorni sozlash: boshqaruv panelidagi qadamlar ro'yxati, joylarni ketma-ket ommaviy yaratish (A-01 … A-30) | ✅ Ishlaydi |
+| **Kamerasiz pilot — aylanma tekshiruv:** administrator telefonda qator bo'ylab joylarni band/bo'sh deb belgilaydi; band-to'lanmagan joy bo'yicha ogohlantirish ochiladi; belgi faqat shu kun amal qiladi | ✅ Ishlaydi |
 | Naqd to'lov + chek + smena (kassa) | ✅ Ishlaydi |
 | To'lovni bekor qilish (faqat CHIEF, sabab bilan, yozuv o'chirilmaydi) | ✅ Ishlaydi |
 | Ogohlantirishlar: 5 daq → admin, +10 daq → rahbar (DB asosidagi, restartga chidamli) | ✅ Ishlaydi |
@@ -145,7 +146,7 @@ Testlar `DATABASE_URL` dagi baza nomini `smart_market_test` ga almashtiradi (yok
 ## 8. Ma'lum cheklovlar
 
 - To'lovning haqiqiy amal qilish muddati tasdiqlanmagan — DEMO kunlik sikl ishlatiladi (`Sozlamalar → To'lov sikllari`).
-- Real kamera va real AI ulanmagan; bandlik DEMO simulyator, qo'lda tekshiruv yoki ichki API orqali keladi.
+- Real kamera va real AI ulanmagan; bandlik DEMO simulyator, **aylanma tekshiruv** (`/round`, qo'lda) yoki ichki API orqali keladi. Kamerasiz yoki kamerasi ishlamayotgan joylardagi qo'lda belgi ertasi kuni bekor bo'ladi (joy yana "noma'lum").
 - Click to'lovlari API orqali emas, qo'lda (chek raqami) qayd etiladi va "Yig'im nazorati" sahifasida ko'chirma bilan solishtiriladi.
 - Audit jurnali triggeri UPDATE/DELETE ni bloklaydi, ammo jadval egasi (superuser) TRUNCATE yoki triggerni o'chirishi mumkin — productionda API ni jadval egasi bo'lmagan alohida rol bilan ishga tushiring (`docs/SECURITY.md`).
 - Docker/production stack (`infrastructure/deploy`) yozilgan, lekin Docker daemon o'chiq bo'lgani uchun hali to'liq ishga tushirib sinalmagan.

@@ -6,6 +6,8 @@ import { ensureUnpaidAlert, resolveUnpaidAlerts, createImmediateAlert, ACTIVE_AL
 import { pushNotifications } from './notification.service';
 import { cameraProviderFor } from '../integrations/camera';
 import { getSetting } from './settings.service';
+import { startOfLocalDay } from '../lib/time';
+import { logger } from '../lib/logger';
 import type { AuthUser } from '../middleware/auth';
 
 export interface ObservationInput {
@@ -149,4 +151,42 @@ export async function checkCameraHealth(now = new Date()) {
       await setCameraStatus(cam.id, 'OFFLINE', `Heartbeat ${timeoutSec} soniyadan beri kelmadi`);
     }
   }
+}
+
+/**
+ * Camera-less pilot: a person's on-site check is only true for the market day it was
+ * made on. Spaces that no working camera observes fall back to UNKNOWN at the start of
+ * the next day, so yesterday's "occupied" never turns into today's unpaid alert.
+ * Alerts nobody has been notified about yet are closed; handed-over ones stay with people.
+ */
+export async function expireStaleManualOccupancy(now = new Date()) {
+  const market = await prisma.market.findFirst();
+  if (!market) return 0;
+  const dayStart = startOfLocalDay(now, market.utcOffsetMinutes);
+  const stale = await prisma.tradingSpace.findMany({
+    where: {
+      marketId: market.id,
+      occupancyState: { not: 'UNKNOWN' },
+      lastDetectedAt: { lt: dayStart },
+      OR: [{ cameraZone: null }, { cameraZone: { camera: { status: { in: ['OFFLINE', 'MAINTENANCE'] } } } }],
+    },
+    select: { id: true },
+  });
+  if (!stale.length) return 0;
+  const ids = stale.map((s) => s.id);
+  await prisma.$transaction(async (tx) => {
+    await tx.tradingSpace.updateMany({ where: { id: { in: ids } }, data: { occupancyState: 'UNKNOWN' } });
+    for (const id of ids) await resolveUnpaidAlerts(tx, id, "Kecha qo'lda belgilangan bandlik muddati tugadi — bugun qayta tekshiring", { onlyOpen: true });
+    await audit(tx, {
+      actor: null,
+      action: 'OCCUPANCY_MANUAL_EXPIRED',
+      entityType: 'Market',
+      entityId: market.id,
+      summary: `Kamerasiz ${ids.length} ta joyning kechagi bandlik belgisi bekor qilindi`,
+      after: { count: ids.length },
+    });
+  });
+  for (const id of ids) emit('space:updated', { id, state: 'UNKNOWN' });
+  logger.info('Stale manual occupancy expired', { count: ids.length });
+  return ids.length;
 }

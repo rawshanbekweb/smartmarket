@@ -11,6 +11,7 @@ const DashboardPage = lazy(() => import('./pages/DashboardPage'));
 const SpacesPage = lazy(() => import('./pages/SpacesPage'));
 const SpaceDetailPage = lazy(() => import('./pages/SpaceDetailPage'));
 const RowsPage = lazy(() => import('./pages/RowsPage'));
+const RoundPage = lazy(() => import('./pages/RoundPage'));
 const CamerasPage = lazy(() => import('./pages/CamerasPage'));
 const CameraDetailPage = lazy(() => import('./pages/CameraDetailPage'));
 const PaymentsPage = lazy(() => import('./pages/PaymentsPage'));
@@ -51,7 +52,7 @@ function Guard({ roles, children }: { roles: Role[]; children: ReactNode }) {
 function prefetchPages() {
   const loaders = [
     () => import('./pages/DashboardPage'), () => import('./pages/SpacesPage'), () => import('./pages/SpaceDetailPage'),
-    () => import('./pages/RowsPage'), () => import('./pages/CamerasPage'), () => import('./pages/CameraDetailPage'),
+    () => import('./pages/RowsPage'), () => import('./pages/RoundPage'), () => import('./pages/CamerasPage'), () => import('./pages/CameraDetailPage'),
     () => import('./pages/PaymentsPage'), () => import('./pages/PaymentDetailPage'), () => import('./pages/CashierPage'),
     () => import('./pages/AlertsPage'), () => import('./pages/AlertDetailPage'), () => import('./pages/ComplaintsPage'),
     () => import('./pages/ExemptionsPage'), () => import('./pages/ReportsPage'), () => import('./pages/UsersPage'),
@@ -109,6 +110,7 @@ export function App() {
           <Route path="/spaces" element={g(ALL, <SpacesPage />)} />
           <Route path="/spaces/:id" element={g(ALL, <SpaceDetailPage />)} />
           <Route path="/rows" element={g(MGMT, <RowsPage />)} />
+          <Route path="/round" element={g(MGMT, <RoundPage />)} />
           <Route path="/cameras" element={g(MGMT, <CamerasPage />)} />
           <Route path="/cameras/:id" element={g(MGMT, <CameraDetailPage />)} />
           <Route path="/payments" element={g(ALL, <PaymentsPage />)} />

@@ -5,7 +5,7 @@ import { audit } from '../lib/audit';
 import { logger } from '../lib/logger';
 import { emit } from '../realtime/socket';
 import { getSetting, isWithinWorkingHours } from './settings.service';
-import { isCovered } from './spaceStatus.service';
+import { checkedSinceCameraLoss, isCovered } from './spaceStatus.service';
 import { notifyRoles, pushNotifications } from './notification.service';
 import type { AuthUser } from '../middleware/auth';
 
@@ -23,7 +23,8 @@ export async function ensureUnpaidAlert(db: Db, spaceId: string, now = new Date(
   });
   if (!space || !space.isActive || space.occupancyState !== 'OCCUPIED') return null;
   const cam = space.cameraZone?.camera;
-  if (cam && (cam.status === 'OFFLINE' || cam.status === 'MAINTENANCE')) return null;
+  // A dark camera proves nothing — unless a person has checked the space since it went dark.
+  if (cam && (cam.status === 'OFFLINE' || cam.status === 'MAINTENANCE') && !checkedSinceCameraLoss(space, cam)) return null;
   // Goods left overnight are not unpaid trading: only open new alerts during working hours.
   if (!(await isWithinWorkingHours(now, space.market.utcOffsetMinutes, db))) return null;
   if (await isCovered(db, spaceId, now)) return null;

@@ -26,6 +26,8 @@ export function deriveStatus(input: {
   cameraStatus: CameraStatus | null;
   hasValidPayment: boolean;
   hasActiveExemption: boolean;
+  /** A person checked the space after its camera stopped reporting (see `checkedSinceCameraLoss`). */
+  checkedSinceCameraLoss?: boolean;
 }): { status: SpaceDisplayStatus; paymentState: PaymentState } {
   const paymentState: PaymentState = input.hasValidPayment
     ? 'PAID'
@@ -34,7 +36,7 @@ export function deriveStatus(input: {
       : 'UNPAID';
 
   let status: SpaceDisplayStatus;
-  if (input.cameraStatus && UNAVAILABLE.includes(input.cameraStatus)) status = 'CAMERA_UNAVAILABLE';
+  if (input.cameraStatus && UNAVAILABLE.includes(input.cameraStatus) && !input.checkedSinceCameraLoss) status = 'CAMERA_UNAVAILABLE';
   else if (input.occupancyState === 'FREE') status = 'FREE';
   else if (input.occupancyState === 'UNKNOWN') status = 'UNKNOWN';
   else if (input.hasValidPayment) status = 'OCCUPIED_PAID';
@@ -42,6 +44,19 @@ export function deriveStatus(input: {
   else status = 'OCCUPIED_UNPAID';
 
   return { status, paymentState };
+}
+
+/**
+ * While a camera is down, an on-site check made after its last heartbeat is the best
+ * knowledge there is: it replaces "camera unavailable" until the camera reports again.
+ */
+export function checkedSinceCameraLoss(
+  space: { occupancyState: OccupancyState; lastDetectedAt: Date | null },
+  camera: { status: CameraStatus; lastHeartbeatAt: Date | null } | null | undefined,
+): boolean {
+  if (!camera || !UNAVAILABLE.includes(camera.status)) return false;
+  if (space.occupancyState === 'UNKNOWN' || !space.lastDetectedAt) return false;
+  return !camera.lastHeartbeatAt || space.lastDetectedAt > camera.lastHeartbeatAt;
 }
 
 /** Valid = SUCCESS status and the configured validity window covers `now`. */
@@ -68,7 +83,8 @@ export async function computeStatuses(
     select: {
       id: true,
       occupancyState: true,
-      cameraZone: { select: { camera: { select: { status: true } } } },
+      lastDetectedAt: true,
+      cameraZone: { select: { camera: { select: { status: true, lastHeartbeatAt: true } } } },
       payments: {
         where: validPaymentWhere(now),
         orderBy: { validUntil: 'desc' },
@@ -93,6 +109,7 @@ export async function computeStatuses(
       cameraStatus: s.cameraZone?.camera.status ?? null,
       hasValidPayment: !!validPayment,
       hasActiveExemption: !!activeExemption,
+      checkedSinceCameraLoss: checkedSinceCameraLoss(s, s.cameraZone?.camera),
     });
     result.set(s.id, { ...derived, validPayment, activeExemption });
   }

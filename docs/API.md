@@ -25,6 +25,7 @@ Base URL: `/api`. JSON in/out. Errors: `{ "error": { "code", "message", "details
 | GET | `/spaces/:id/history` | CHIEF, ADMIN | audit trail |
 | POST | `/spaces` | CHIEF, ADMIN | `{number,rowId,widthMeters,tariffId,notes?}` |
 | POST | `/spaces/bulk` | CHIEF, ADMIN | `{rowId,tariffId,widthMeters,prefix,from,to,padLength}` → numbered range (≤300), all or nothing; `409` names clashing numbers |
+| POST | `/spaces/occupancy/bulk` | CHIEF, ADMIN | walk-round check: `{items:[{spaceId,state:FREE\|OCCUPIED}]}` (≤300), stored as `MANUAL` observations; never CASHIER |
 | PATCH | `/spaces/:id` | CHIEF, ADMIN | tariff change: CHIEF only; `isActive` to (de)activate |
 | PUT | `/spaces/:id/camera` | CHIEF, ADMIN | `{cameraId|null, zoneCode?}` |
 | POST | `/spaces/:id/occupancy` | CHIEF, ADMIN | manual on-site check `{state}` |

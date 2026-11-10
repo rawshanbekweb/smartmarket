@@ -90,7 +90,7 @@ export async function occupancyMap() {
         spaces: {
           where: { isActive: true },
           orderBy: { positionInRow: 'asc' },
-          select: { id: true, number: true, occupancyState: true, lastDetectedAt: true, widthMeters: true, cameraZone: { select: { camera: { select: { code: true } } } } },
+          select: { id: true, number: true, occupancyState: true, lastDetectedAt: true, widthMeters: true, cameraZone: { select: { camera: { select: { code: true, status: true } } } } },
         },
       },
     }),
@@ -106,8 +106,10 @@ export async function occupancyMap() {
       widthMeters: s.widthMeters.toString(),
       status: statuses.get(s.id)?.status ?? 'UNKNOWN',
       paymentState: statuses.get(s.id)?.paymentState ?? 'UNPAID',
+      occupancyState: s.occupancyState,
       lastDetectedAt: s.lastDetectedAt,
       cameraCode: s.cameraZone?.camera.code ?? null,
+      cameraStatus: s.cameraZone?.camera.status ?? null,
     })),
   }));
 }

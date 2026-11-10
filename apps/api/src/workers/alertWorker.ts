@@ -1,7 +1,7 @@
 import { env } from '../config/env';
 import { logger } from '../lib/logger';
 import { processDueAlerts, sweepUncoveredOccupiedSpaces } from '../services/alert.service';
-import { checkCameraHealth } from '../services/occupancy.service';
+import { checkCameraHealth, expireStaleManualOccupancy } from '../services/occupancy.service';
 
 /**
  * Persistent alert processor. It holds no timers per alert: every tick reads due
@@ -11,6 +11,8 @@ import { checkCameraHealth } from '../services/occupancy.service';
  */
 export async function runWorkerTick(now = new Date()) {
   await checkCameraHealth(now);
+  // Before the sweep: yesterday's manual checks must not open alerts today.
+  await expireStaleManualOccupancy(now);
   await sweepUncoveredOccupiedSpaces(now);
   return processDueAlerts(now);
 }

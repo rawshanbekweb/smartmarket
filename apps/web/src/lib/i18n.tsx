@@ -12,6 +12,7 @@ const D: Record<string, [string, string]> = {
   'nav.dashboard': ['Boshqaruv paneli', 'Панель управления'],
   'nav.spaces': ['Savdo joylari', 'Торговые места'],
   'nav.rows': ['Bozor qatorlari', 'Торговые ряды'],
+  'nav.round': ['Aylanma tekshiruv', 'Обход рядов'],
   'nav.cameras': ['Kamera monitoringi', 'Видеомониторинг'],
   'nav.payments': ["To'lovlar", 'Платежи'],
   'nav.cashier': ['Kassa', 'Касса'],
@@ -308,6 +309,23 @@ const D: Record<string, [string, string]> = {
  * `{name}` placeholders are filled from the second argument of `tx`.
  */
 const P: Record<string, string> = {
+  "Aylanma tekshiruv": "Обход рядов",
+  "Qator bo'ylab yurib, har bir joyni band yoki bo'sh deb belgilang. Band, lekin to'lanmagan joy bo'yicha ogohlantirish avtomatik ochiladi.": "Пройдите вдоль ряда и отметьте каждое место как занятое или свободное. По занятому месту без оплаты оповещение создаётся автоматически.",
+  "{n} ta joy bo'sh deb belgilandi": "отмечено свободными: {n}",
+  "Qolgan {n} ta joyni bo'sh deb belgilash?": "Отметить оставшиеся {n} мест свободными?",
+  "Faqat hali tekshirilmagan joylar belgilanadi. Xato bo'lsa, joyni alohida tuzatish mumkin.": "Отмечаются только ещё не проверенные места. Ошибку можно исправить у каждого места отдельно.",
+  "Bo'sh deb belgilash": "Отметить свободными",
+  "Belgi faqat shu kun uchun amal qiladi: ertasi kuni joylar yana \"noma'lum\" bo'ladi va qayta tekshiriladi. Ishlab turgan kamera ostidagi joylarni kamera o'zi kuzatadi.": "Отметка действует только в этот день: на следующий день места снова становятся «неизвестно» и проверяются заново. Места под работающей камерой отслеживает сама камера.",
+  "Tekshirildi: {a} / {b}": "Проверено: {a} / {b}",
+  "Band, to'lanmagan: {n}": "Занято без оплаты: {n}",
+  "Qolgan {n} tasi bo'sh": "Остальные {n} свободны",
+  "Bu qatorda joy yo'q": "В этом ряду нет мест",
+  "Kamera kuzatmoqda": "Следит камера",
+  "Kamera ishlamayapti": "Камера недоступна",
+  "tekshirildi {t}": "проверено в {t}",
+  "tekshirilmagan": "не проверено",
+  "Band": "Занято",
+  "Bo'sh": "Свободно",
   "DEMO SIMULYATSIYA — jonli oqim emas": "ДЕМО-СИМУЛЯЦИЯ — не живой поток",
   "Signal yo'q": "Нет сигнала",
   "DEMO — simulyatsiya qilingan elektron to'lov": "ДЕМО — симулированный электронный платёж",
@@ -741,6 +759,7 @@ const P: Record<string, string> = {
   "JAMI": "ИТОГО",
   "m (old tomon uzunligi)": "м (длина лицевой стороны)",
   "Hozirgi versiyada kameralar DEMO provayder orqali simulyatsiya qilinadi. Hikvision RTSP/ISAPI integratsiyasi rejalashtirilgan va hali ulanmagan — tizim haqiqiy kameraga ulanganini da'vo qilmaydi.": "В текущей версии камеры симулируются ДЕМО-провайдером. Интеграция Hikvision RTSP/ISAPI запланирована и пока не подключена — система не утверждает, что подключена к реальной камере.",
+  "Kecha qo'lda belgilangan bandlik muddati tugadi — bugun qayta tekshiring": "Вчерашняя ручная отметка занятости истекла — проверьте сегодня заново",
 };
 
 /** API messages that carry values: [pattern on the Uzbek text, Russian template with $1…]. */

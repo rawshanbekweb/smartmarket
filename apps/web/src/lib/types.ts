@@ -85,5 +85,17 @@ export interface OccupancyRow {
   id: string;
   code: string;
   name: string;
-  spaces: { id: string; number: string; widthMeters: string; status: SpaceStatus; paymentState: string; lastDetectedAt: string | null; cameraCode: string | null }[];
+  spaces: OccupancySpace[];
+}
+
+export interface OccupancySpace {
+  id: string;
+  number: string;
+  widthMeters: string;
+  status: SpaceStatus;
+  paymentState: string;
+  occupancyState: 'FREE' | 'OCCUPIED' | 'UNKNOWN';
+  lastDetectedAt: string | null;
+  cameraCode: string | null;
+  cameraStatus: string | null;
 }

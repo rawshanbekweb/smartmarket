@@ -321,6 +321,30 @@ spacesRouter.post(
   }),
 );
 
+/**
+ * Walk-round check (camera-less pilot): an administrator marks many spaces at once.
+ * Cashiers are excluded on purpose — the person collecting money must not be the one
+ * who decides which spaces count as occupied.
+ */
+spacesRouter.post(
+  '/occupancy/bulk',
+  requireRole('CHIEF', 'MARKET_ADMIN'),
+  ah(async (req, res) => {
+    const body = z
+      .object({ items: z.array(z.object({ spaceId: z.string().min(1), state: z.enum(['FREE', 'OCCUPIED']) })).min(1).max(300) })
+      .parse(req.body);
+    const market = await getMarket();
+    const ids = [...new Set(body.items.map((i) => i.spaceId))];
+    const known = await prisma.tradingSpace.count({ where: { id: { in: ids }, marketId: market.id, isActive: true } });
+    if (known !== ids.length) throw badRequest("Ba'zi joylar topilmadi");
+    const observedAt = new Date();
+    for (const item of body.items) {
+      await recordObservation({ spaceId: item.spaceId, state: item.state, source: 'MANUAL', observedAt }, req.user);
+    }
+    res.json({ ok: true, updated: body.items.length });
+  }),
+);
+
 spacesRouter.post(
   '/:id/regenerate-qr',
   requireRole('CHIEF'),

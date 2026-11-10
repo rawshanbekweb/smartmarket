@@ -19,6 +19,7 @@ npm workspaces monorepo: `apps/api` (Express + Prisma + PostgreSQL), `apps/web` 
 - Every sensitive route declares `requireRole(...)`; financial service functions re-check the role.
 - Auth: `requireAuth` also blocks `mustChangePassword` users; `/api/auth/*` uses `requireSession`. Bump `sessionVersion` whenever a change must log a user out everywhere.
 - Alert escalation is driven by persisted timestamps (`adminNotifyAt`, `chiefEscalateAt`) processed by `workers/alertWorker.ts` — no per-alert `setTimeout`.
+- Camera-less pilot: occupancy comes from on-site checks (`MANUAL` observations, `/round`, CHIEF/MARKET_ADMIN only — never CASHIER). A manual check is valid for its market day: `expireStaleManualOccupancy` (worker) resets spaces without a working camera to UNKNOWN. A check made after a camera's last heartbeat overrides CAMERA_UNAVAILABLE (`checkedSinceCameraLoss`).
 - AI/vision may only post observations/heartbeats via `/api/internal/vision/*`; it must never touch payments.
 - Demo/simulated things must be labelled (`isDemo`, `isSimulated`, `DEMO_SIMULATOR`, UI `DemoTag`/`SimulatedNotice`). Never present simulated camera previews or payments as real.
 - Money: integer UZS. Market time: UTC+5 (`lib/time.ts`).

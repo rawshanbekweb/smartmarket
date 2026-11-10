@@ -65,7 +65,7 @@ export function SpaceForm({ open, space, onClose }: { open: boolean; space?: Spa
             <Select loading={rows.isLoading} options={rows.data?.map((r) => ({ value: r.id, label: r.name }))} />
           </Form.Item>
           <Form.Item name="widthMeters" label="Uzunligi (metr, maydon emas)" rules={[{ required: true }]} tooltip="Savdo joyining old tomon uzunligi metrlarda. Kvadrat metr emas.">
-            <InputNumber min={0.1} max={100} step={0.5} addonAfter="m" className="w-full" />
+            <InputNumber min={0.1} max={100} step={0.5} suffix="m" className="w-full" />
           </Form.Item>
           <Form.Item name="tariffId" label={t('c.tariff')} rules={[{ required: true }]} extra={space && !can('CHIEF') ? "Tarifni faqat rahbar o'zgartiradi" : undefined}>
             <Select

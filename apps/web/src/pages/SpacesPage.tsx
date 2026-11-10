@@ -2,7 +2,7 @@ import { useState } from 'react';
 import { Link, useSearchParams } from 'react-router-dom';
 import { Button, Input, Select, Table } from 'antd';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
-import { Plus, Cctv } from 'lucide-react';
+import { Plus, Cctv, ListPlus } from 'lucide-react';
 import { get, type Paged } from '../lib/api';
 import { useI18n } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
@@ -11,6 +11,7 @@ import { SPACE_STATUSES, type Space } from '../lib/types';
 import { PageHeader, Card, ErrorState } from '../components/common';
 import { SpaceStatusChip, PaymentStateChip, CameraStatusChip, DemoTag } from '../components/Status';
 import { SpaceForm } from '../components/SpaceForm';
+import { BulkSpaceForm } from '../components/BulkSpaceForm';
 import { SpaceDrawer } from '../components/SpaceDrawer';
 
 export default function SpacesPage() {
@@ -19,6 +20,7 @@ export default function SpacesPage() {
   const [sp, setSp] = useSearchParams();
   const [page, setPage] = useState(1);
   const [formOpen, setFormOpen] = useState(false);
+  const [bulkOpen, setBulkOpen] = useState(false);
   const [editing, setEditing] = useState<Space | null>(null);
   const [drawer, setDrawer] = useState<string | null>(null);
   const filters = {
@@ -51,9 +53,14 @@ export default function SpacesPage() {
         subtitle={q.data ? `${q.data.total} ta joy topildi` : undefined}
         extra={
           manage && (
-            <Button type="primary" icon={<Plus size={16} />} onClick={() => { setEditing(null); setFormOpen(true); }}>
-              {t('c.add')}
-            </Button>
+            <>
+              <Button icon={<ListPlus size={16} />} onClick={() => setBulkOpen(true)}>
+                {t('bulk.button')}
+              </Button>
+              <Button type="primary" icon={<Plus size={16} />} onClick={() => { setEditing(null); setFormOpen(true); }}>
+                {t('c.add')}
+              </Button>
+            </>
           )
         }
       />
@@ -127,6 +134,7 @@ export default function SpacesPage() {
         )}
       </Card>
       <SpaceForm open={formOpen} space={editing} onClose={() => setFormOpen(false)} />
+      <BulkSpaceForm open={bulkOpen} rowId={filters.rowId} onClose={() => setBulkOpen(false)} />
       <SpaceDrawer spaceId={drawer} onClose={() => setDrawer(null)} />
     </div>
   );

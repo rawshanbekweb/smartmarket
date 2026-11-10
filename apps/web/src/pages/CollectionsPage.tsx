@@ -210,7 +210,7 @@ function CashHandovers() {
         )}
         <Form form={form} layout="vertical" onFinish={(v) => receiving && receive.mutate({ id: receiving.id, receivedCash: v.receivedCash, note: v.note || undefined })}>
           <Form.Item name="receivedCash" label={t('col.counted')} extra={t('col.countedHelp')} rules={[{ required: true }]}>
-            <InputNumber min={0} step={1000} className="!w-full" size="large" addonAfter="UZS" />
+            <InputNumber min={0} step={1000} className="!w-full" size="large" suffix="UZS" />
           </Form.Item>
           <Form.Item name="note" label={t('c.note')}>
             <Input maxLength={300} />

@@ -70,6 +70,15 @@ body {
   background: #f8fafc !important;
 }
 
+/* Narrow screens: wide tables and filter tabs scroll inside their card instead of stretching the page. */
+.ant-table-content {
+  overflow-x: auto;
+}
+.ant-segmented {
+  max-width: 100%;
+  overflow-x: auto;
+}
+
 /* Occupancy cells */
 .space-cell {
   transition: transform 0.12s ease, box-shadow 0.12s ease;

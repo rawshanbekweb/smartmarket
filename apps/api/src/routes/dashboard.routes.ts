@@ -2,12 +2,14 @@ import { Router } from 'express';
 import { ah } from '../middleware/common';
 import { requireAuth, requireRole } from '../middleware/auth';
 import { dateRangeQuery } from '../lib/http';
-import { dashboardSummary, occupancyMap, paymentDistribution, revenueSeries } from '../services/analytics.service';
+import { dashboardSummary, occupancyMap, paymentDistribution, revenueSeries, setupStatus } from '../services/analytics.service';
 
 export const dashboardRouter = Router();
 dashboardRouter.use(requireAuth);
 
 dashboardRouter.get('/summary', requireRole('CHIEF', 'MARKET_ADMIN'), ah(async (_req, res) => res.json(await dashboardSummary())));
+
+dashboardRouter.get('/setup', requireRole('CHIEF', 'MARKET_ADMIN'), ah(async (_req, res) => res.json(await setupStatus())));
 
 dashboardRouter.get(
   '/occupancy',

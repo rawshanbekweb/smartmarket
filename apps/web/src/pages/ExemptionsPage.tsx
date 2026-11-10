@@ -33,7 +33,7 @@ export function ExemptionModal({ open, onClose, spaceId }: { open: boolean; onCl
   const { message } = App.useApp();
   const qc = useQueryClient();
   const [form] = Form.useForm();
-  const spaces = useQuery({ queryKey: ['spaces', 'all-options'], queryFn: () => get<Paged<Space>>('/spaces', { pageSize: 200 }), enabled: open && !spaceId });
+  const spaces = useQuery({ queryKey: ['spaces', 'all-options'], queryFn: () => get<Paged<Space>>('/spaces', { pageSize: 2000 }), enabled: open && !spaceId });
   const save = useMutation({
     mutationFn: (v: any) =>
       post('/exemptions', {

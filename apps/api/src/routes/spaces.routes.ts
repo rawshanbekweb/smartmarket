@@ -5,7 +5,7 @@ import { Prisma } from '@prisma/client';
 import { prisma } from '../lib/prisma';
 import { ah } from '../middleware/common';
 import { requireAuth, requireRole } from '../middleware/auth';
-import { badRequest, forbidden, notFound } from '../lib/errors';
+import { badRequest, conflict, forbidden, notFound } from '../lib/errors';
 import { paged, paging } from '../lib/http';
 import { audit } from '../lib/audit';
 import { getMarket } from '../services/market.service';
@@ -62,7 +62,8 @@ spacesRouter.get(
   '/',
   ah(async (req, res) => {
     const q = listQuery.parse(req.query);
-    const { page, pageSize, skip, take } = paging(req.query);
+    // Pickers (cashier, exemptions, camera zones) load the whole market in one request.
+    const { page, pageSize, skip, take } = paging(req.query, 2000);
     const market = await getMarket();
     const where: Prisma.TradingSpaceWhereInput = {
       marketId: market.id,
@@ -146,6 +147,9 @@ spacesRouter.post(
     ]);
     if (!row) throw badRequest('Qator topilmadi');
     if (!tariff) throw badRequest('Faol tarif topilmadi');
+    if (await prisma.tradingSpace.findFirst({ where: { marketId: market.id, number: body.number } })) {
+      throw conflict(`${body.number} raqamli joy allaqachon mavjud`);
+    }
     const position = body.positionInRow ?? (await prisma.tradingSpace.count({ where: { rowId: row.id } })) + 1;
     const space = await prisma.$transaction(async (tx) => {
       const created = await tx.tradingSpace.create({
@@ -165,6 +169,71 @@ spacesRouter.post(
     });
     emit('space:updated', { id: space.id });
     res.status(201).json(space);
+  }),
+);
+
+const bulkBody = z
+  .object({
+    rowId: z.string().min(1),
+    tariffId: z.string().min(1),
+    widthMeters: z.coerce.number().positive().max(100),
+    /** Text before the running number, e.g. "A-" → A-01, A-02 … */
+    prefix: z.string().trim().max(12).default(''),
+    from: z.coerce.number().int().min(0).max(99_999),
+    to: z.coerce.number().int().min(0).max(99_999),
+    /** Minimum digits of the running number (2 → 01, 02 …). */
+    padLength: z.coerce.number().int().min(1).max(5).default(2),
+  })
+  .refine((b) => b.to >= b.from, { message: "Oxirgi raqam birinchisidan kichik bo'lmasligi kerak", path: ['to'] })
+  .refine((b) => b.to - b.from < 300, { message: "Bir martada ko'pi bilan 300 ta joy yaratiladi", path: ['to'] });
+
+/** Create a numbered range of spaces in one row (first set-up of a real market). All or nothing. */
+spacesRouter.post(
+  '/bulk',
+  requireRole('CHIEF', 'MARKET_ADMIN'),
+  ah(async (req, res) => {
+    const body = bulkBody.parse(req.body);
+    const market = await getMarket();
+    const [row, tariff] = await Promise.all([
+      prisma.marketRow.findFirst({ where: { id: body.rowId, marketId: market.id } }),
+      prisma.tariff.findFirst({ where: { id: body.tariffId, marketId: market.id, isActive: true } }),
+    ]);
+    if (!row) throw badRequest('Qator topilmadi');
+    if (!tariff) throw badRequest('Faol tarif topilmadi');
+    const numbers: string[] = [];
+    for (let n = body.from; n <= body.to; n++) numbers.push(`${body.prefix}${String(n).padStart(body.padLength, '0')}`);
+    if (numbers.some((n) => n.length > 20)) throw badRequest('Joy raqami 20 belgidan oshmasligi kerak');
+    const taken = await prisma.tradingSpace.findMany({ where: { marketId: market.id, number: { in: numbers } }, select: { number: true }, orderBy: { number: 'asc' } });
+    if (taken.length) {
+      const list = taken.slice(0, 8).map((t) => t.number).join(', ');
+      throw conflict(`Bu raqamli joylar allaqachon mavjud: ${list}${taken.length > 8 ? ` va yana ${taken.length - 8} ta` : ''}`);
+    }
+    await prisma.$transaction(async (tx) => {
+      const last = await tx.tradingSpace.aggregate({ where: { rowId: row.id }, _max: { positionInRow: true } });
+      const start = (last._max.positionInRow ?? 0) + 1;
+      await tx.tradingSpace.createMany({
+        data: numbers.map((number, i) => ({
+          marketId: market.id,
+          rowId: row.id,
+          number,
+          positionInRow: start + i,
+          widthMeters: new Prisma.Decimal(body.widthMeters),
+          tariffId: tariff.id,
+          qrToken: randomBytes(12).toString('hex'),
+        })),
+      });
+      await audit(tx, {
+        actor: req.user,
+        req,
+        action: 'SPACES_BULK_CREATED',
+        entityType: 'MarketRow',
+        entityId: row.id,
+        summary: `${row.name}: ${numbers.length} ta joy yaratildi (${numbers[0]} … ${numbers[numbers.length - 1]})`,
+        after: { ...body, count: numbers.length },
+      });
+    });
+    emit('space:updated', { rowId: row.id });
+    res.status(201).json({ created: numbers.length, first: numbers[0], last: numbers[numbers.length - 1] });
   }),
 );
 

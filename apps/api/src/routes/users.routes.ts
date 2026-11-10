@@ -4,7 +4,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { ah } from '../middleware/common';
 import { requireAuth, requireRole } from '../middleware/auth';
-import { badRequest, notFound } from '../lib/errors';
+import { badRequest, conflict, notFound } from '../lib/errors';
 import { audit } from '../lib/audit';
 import { BCRYPT_COST, passwordSchema as password } from '../services/auth.service';
 
@@ -46,6 +46,9 @@ usersRouter.post(
         password,
       })
       .parse(req.body);
+    if (await prisma.user.findUnique({ where: { username: body.username } })) {
+      throw conflict(`"${body.username}" logini band`);
+    }
     const user = await prisma.$transaction(async (tx) => {
       const u = await tx.user.create({
         // The initial password is handed over by the CHIEF, so the user must replace it at first login.

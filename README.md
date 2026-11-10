@@ -111,6 +111,7 @@ Testlar `DATABASE_URL` dagi baza nomini `smart_market_test` ga almashtiradi (yok
 |---|---|
 | Autentifikatsiya, RBAC, audit, sozlamalar | ✅ Ishlaydi |
 | Savdo joylari, qatorlar CRUD, QR kodlar | ✅ Ishlaydi |
+| Yangi bozorni sozlash: boshqaruv panelidagi qadamlar ro'yxati, joylarni ketma-ket ommaviy yaratish (A-01 … A-30) | ✅ Ishlaydi |
 | Naqd to'lov + chek + smena (kassa) | ✅ Ishlaydi |
 | To'lovni bekor qilish (faqat CHIEF, sabab bilan, yozuv o'chirilmaydi) | ✅ Ishlaydi |
 | Ogohlantirishlar: 5 daq → admin, +10 daq → rahbar (DB asosidagi, restartga chidamli) | ✅ Ishlaydi |

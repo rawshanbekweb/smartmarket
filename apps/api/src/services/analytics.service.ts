@@ -163,3 +163,30 @@ export async function paymentDistribution(from?: string, to?: string) {
   }
   return { from: fromKey, to: toKey, ...d, confirmedRevenue: d.cash.amount + d.electronic.amount };
 }
+
+/**
+ * What a freshly bootstrapped market still needs before the first payment can be
+ * collected. Drives the set-up checklist on the dashboard.
+ */
+export async function setupStatus() {
+  const market = await getMarket();
+  const [tariffs, activeCycles, rows, spaces, cashiers, assignedCashiers] = await Promise.all([
+    prisma.tariff.count({ where: { marketId: market.id, isActive: true } }),
+    prisma.paymentCycle.count({ where: { marketId: market.id, isActive: true } }),
+    prisma.marketRow.count({ where: { marketId: market.id, isActive: true } }),
+    prisma.tradingSpace.count({ where: { marketId: market.id, isActive: true } }),
+    prisma.user.count({ where: { role: 'CASHIER', isActive: true } }),
+    prisma.cashierRowAssignment.count({ where: { endsAt: null, cashier: { isActive: true } } }),
+  ]);
+  const steps = {
+    tariff: tariffs > 0,
+    cycle: activeCycles > 0,
+    rows: rows > 0,
+    spaces: spaces > 0,
+    cashier: cashiers > 0,
+    assignment: assignedCashiers > 0,
+  };
+  // Row assignment only improves complaint routing; payments work without it.
+  const complete = steps.tariff && steps.cycle && steps.rows && steps.spaces && steps.cashier;
+  return { complete, steps, counts: { tariffs, rows, spaces, cashiers } };
+}

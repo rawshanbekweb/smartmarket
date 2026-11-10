@@ -1,4 +1,4 @@
-import { useMemo, useState } from 'react';
+import { useMemo, useRef, useState } from 'react';
 import { Link } from 'react-router-dom';
 import { Alert as AntAlert, App, Button, Form, Input, InputNumber, Modal, Segmented, Select, Skeleton, Table } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
@@ -37,10 +37,18 @@ export default function CashierPage() {
   const [clickRef, setClickRef] = useState('');
   const [closeOpen, setCloseOpen] = useState(false);
   const [closeForm] = Form.useForm();
+  const payPanel = useRef<HTMLDivElement>(null);
+  /** On a phone the payment panel sits below the grid: bring it into view once a space is picked. */
+  const selectSpace = (id: string) => {
+    setSelectedId(id);
+    if (window.matchMedia('(max-width: 1279px)').matches) {
+      requestAnimationFrame(() => payPanel.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }));
+    }
+  };
 
   const summary = useQuery({ queryKey: ['cashier', 'summary'], queryFn: () => get<Summary>('/cashier/summary'), refetchInterval: 30_000 });
   const rows = useQuery({ queryKey: ['rows'], queryFn: () => get<{ id: string; name: string }[]>('/rows') });
-  const spaces = useQuery({ queryKey: ['spaces', 'cashier'], queryFn: () => get<Paged<Space>>('/spaces', { pageSize: 200 }), refetchInterval: 30_000 });
+  const spaces = useQuery({ queryKey: ['spaces', 'cashier'], queryFn: () => get<Paged<Space>>('/spaces', { pageSize: 2000 }), refetchInterval: 30_000 });
   const shifts = useQuery({ queryKey: ['cashier', 'shifts'], queryFn: () => get<any[]>('/cashier/shifts') });
 
   const assignedIds = new Set(summary.data?.assignedRows.map((r) => r.id));
@@ -123,7 +131,7 @@ export default function CashierPage() {
         subtitle={<span>{me?.user.fullName} · Biriktirilgan qatorlar: {summary.data?.assignedRows.map((r) => r.name).join(', ') || '—'}</span>}
         extra={
           shift ? (
-            <Button icon={<Lock size={15} />} onClick={() => { closeForm.setFieldsValue({ declaredCash: shift.cashAmount, note: undefined }); setCloseOpen(true); }}>
+            <Button icon={<Lock size={15} />} onClick={() => setCloseOpen(true)}>
               {t('cash.closeShift')}
             </Button>
           ) : (
@@ -161,7 +169,7 @@ export default function CashierPage() {
               <button
                 key={s.id}
                 type="button"
-                onClick={() => setSelectedId(s.id)}
+                onClick={() => selectSpace(s.id)}
                 className={`cursor-pointer rounded-lg border border-solid p-2.5 text-left transition-colors ${selectedId === s.id ? 'border-blue-600 bg-blue-50 ring-2 ring-blue-200' : 'border-slate-200 bg-white hover:border-slate-300'}`}
               >
                 <div className="flex items-center justify-between">
@@ -175,7 +183,7 @@ export default function CashierPage() {
           </div>
         </Card>
 
-        <div className="flex flex-col gap-5">
+        <div ref={payPanel} className="flex scroll-mt-20 flex-col gap-5">
           <Card title="To'lov">
             {!selected ? (
               <EmptyState text="Chap tomondan joyni tanlang" />
@@ -271,9 +279,9 @@ export default function CashierPage() {
             <div className="flex justify-between"><span className="text-slate-500">{t('pm.CLICK')}</span><span className="tabular">{fmtMoney(shift.clickAmount)}</span></div>
           </div>
         )}
-        <Form form={closeForm} layout="vertical" onFinish={(v) => shiftMut.mutate({ action: 'close', declaredCash: v.declaredCash, note: v.note || undefined })}>
+        <Form form={closeForm} layout="vertical" preserve={false} initialValues={{ declaredCash: shift?.cashAmount }} onFinish={(v) => shiftMut.mutate({ action: 'close', declaredCash: v.declaredCash, note: v.note || undefined })}>
           <Form.Item name="declaredCash" label={t('cash.declaredCash')} extra={t('cash.declaredHelp')} rules={[{ required: true }]}>
-            <InputNumber min={0} step={1000} className="!w-full" size="large" addonAfter="UZS" />
+            <InputNumber min={0} step={1000} precision={0} className="!w-full" size="large" suffix="UZS" />
           </Form.Item>
           <Form.Item name="note" label={t('c.note')}>
             <Input maxLength={300} />

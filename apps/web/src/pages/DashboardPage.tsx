@@ -1,4 +1,5 @@
 import { useMemo, useState } from 'react';
+import { SetupChecklist } from '../components/SetupChecklist';
 import { Link } from 'react-router-dom';
 import { Button, Segmented, Skeleton, Tooltip } from 'antd';
 import { useQuery } from '@tanstack/react-query';
@@ -175,6 +176,8 @@ export default function DashboardPage() {
           </Tooltip>
         }
       />
+
+      <SetupChecklist />
 
       <QueryView q={summary} rows={3}>
         {(s) => <Kpis s={s} />}

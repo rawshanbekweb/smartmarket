@@ -5,7 +5,7 @@ Base URL: `/api`. JSON in/out. Errors: `{ "error": { "code", "message", "details
 **Auth:** `POST /auth/login` sets an httpOnly, `SameSite=Strict` cookie `sm_session` (JWT, 12h).
 **CSRF:** every non-GET request with the cookie must send `X-Requested-With: SmartMarket`.
 **Roles:** `CHIEF`, `MARKET_ADMIN`, `CASHIER`. All checks are enforced server-side.
-**Paging:** `page` (1..), `pageSize` (≤200) → `{ items, total, page, pageSize }`.
+**Paging:** `page` (1..), `pageSize` (≤200; `/spaces` ≤2000 so pickers can load the whole market) → `{ items, total, page, pageSize }`.
 **Money:** integer UZS. Revenue = `SUCCESS` payments only.
 
 | Method | Path | Roles | Notes |
@@ -16,6 +16,7 @@ Base URL: `/api`. JSON in/out. Errors: `{ "error": { "code", "message", "details
 | POST | `/auth/password` | any | `{currentPassword, newPassword}`; revokes other sessions, re-issues the cookie |
 | GET | `/auth/me` | any | user (incl. `mustChangePassword`), market, demoMode |
 | GET | `/dashboard/summary` | CHIEF, ADMIN | KPIs (live from DB) |
+| GET | `/dashboard/setup` | CHIEF, ADMIN | first-run checklist: `{complete, steps:{tariff,cycle,rows,spaces,cashier,assignment}}` |
 | GET | `/dashboard/occupancy` | all | rows → spaces with derived status |
 | GET | `/dashboard/revenue?from&to` | CHIEF, ADMIN | daily cash / electronic |
 | GET | `/dashboard/payment-distribution?from&to` | CHIEF, ADMIN | cash, electronic, pendingSync, cancelled |
@@ -23,6 +24,7 @@ Base URL: `/api`. JSON in/out. Errors: `{ "error": { "code", "message", "details
 | GET | `/spaces/:id` | all | payments (cashier: own), alerts, exemptions, observations |
 | GET | `/spaces/:id/history` | CHIEF, ADMIN | audit trail |
 | POST | `/spaces` | CHIEF, ADMIN | `{number,rowId,widthMeters,tariffId,notes?}` |
+| POST | `/spaces/bulk` | CHIEF, ADMIN | `{rowId,tariffId,widthMeters,prefix,from,to,padLength}` → numbered range (≤300), all or nothing; `409` names clashing numbers |
 | PATCH | `/spaces/:id` | CHIEF, ADMIN | tariff change: CHIEF only; `isActive` to (de)activate |
 | PUT | `/spaces/:id/camera` | CHIEF, ADMIN | `{cameraId|null, zoneCode?}` |
 | POST | `/spaces/:id/occupancy` | CHIEF, ADMIN | manual on-site check `{state}` |

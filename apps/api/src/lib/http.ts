@@ -5,8 +5,9 @@ export const pageQuery = z.object({
   pageSize: z.coerce.number().int().min(1).max(200).default(20),
 });
 
-export function paging(q: unknown) {
-  const { page, pageSize } = pageQuery.parse(q);
+/** `maxPageSize` lets pickers that need the whole market (e.g. the cashier's space list) ask for more. */
+export function paging(q: unknown, maxPageSize = 200) {
+  const { page, pageSize } = pageQuery.extend({ pageSize: z.coerce.number().int().min(1).max(maxPageSize).default(20) }).parse(q);
   return { page, pageSize, skip: (page - 1) * pageSize, take: pageSize };
 }
 

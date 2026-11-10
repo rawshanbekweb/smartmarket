@@ -31,7 +31,7 @@ export default function CameraDetailPage() {
   const [assignOpen, setAssignOpen] = useState(false);
   const [selected, setSelected] = useState<string[]>([]);
   const q = useQuery({ queryKey: ['camera', id], queryFn: () => get<Detail>(`/cameras/${id}`), refetchInterval: 20_000 });
-  const spaces = useQuery({ queryKey: ['spaces', 'all-for-camera'], queryFn: () => get<Paged<Space>>('/spaces', { pageSize: 200 }), enabled: assignOpen });
+  const spaces = useQuery({ queryKey: ['spaces', 'all-for-camera'], queryFn: () => get<Paged<Space>>('/spaces', { pageSize: 2000 }), enabled: assignOpen });
   const mut = useMutation({
     mutationFn: (fn: () => Promise<unknown>) => fn(),
     onSuccess: () => { message.success('Saqlandi'); qc.invalidateQueries({ queryKey: ['camera'] }); qc.invalidateQueries({ queryKey: ['cameras'] }); qc.invalidateQueries({ queryKey: ['dashboard'] }); },

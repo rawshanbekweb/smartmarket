@@ -3,7 +3,7 @@ import { z } from 'zod';
 import { prisma } from '../lib/prisma';
 import { ah } from '../middleware/common';
 import { requireAuth, requireRole } from '../middleware/auth';
-import { notFound } from '../lib/errors';
+import { conflict, notFound } from '../lib/errors';
 import { audit } from '../lib/audit';
 import { getMarket } from '../services/market.service';
 import { computeStatuses } from '../services/spaceStatus.service';
@@ -57,6 +57,9 @@ rowsRouter.post(
   ah(async (req, res) => {
     const body = rowBody.parse(req.body);
     const market = await getMarket();
+    if (await prisma.marketRow.findFirst({ where: { marketId: market.id, code: body.code } })) {
+      throw conflict(`"${body.code}" kodli qator allaqachon mavjud`);
+    }
     const row = await prisma.$transaction(async (tx) => {
       const r = await tx.marketRow.create({ data: { ...body, marketId: market.id } });
       await audit(tx, { actor: req.user, req, action: 'ROW_CREATED', entityType: 'MarketRow', entityId: r.id, summary: `Qator ${r.name}`, after: body });

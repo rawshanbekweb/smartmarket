@@ -4,7 +4,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import dayjs, { type Dayjs } from 'dayjs';
 import { Download, FileBarChart } from 'lucide-react';
 import { api, errorMessage, get } from '../lib/api';
-import { useI18n } from '../lib/i18n';
+import { useI18n, tx, txServer } from '../lib/i18n';
 import { daysAgoKey, downloadBlob, fmtDateTime, fmtMoney, fmtNum, todayKey } from '../lib/format';
 import { PageHeader, Card, QueryView } from '../components/common';
 
@@ -55,7 +55,7 @@ export default function ReportsPage() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title={t('nav.reports')}
-        subtitle="Barcha hisobotlar ma'lumotlar bazasidagi yozuvlardan hisoblanadi. Tushumga faqat muvaffaqiyatli to'lovlar kiradi."
+        subtitle={tx("Barcha hisobotlar ma'lumotlar bazasidagi yozuvlardan hisoblanadi. Tushumga faqat muvaffaqiyatli to'lovlar kiradi.")}
         extra={<Button type="primary" icon={<Download size={15} />} loading={downloading} onClick={exportCsv}>{t('c.export')}</Button>}
       />
       <div className="grid gap-4 lg:grid-cols-[240px_1fr]">
@@ -64,7 +64,7 @@ export default function ReportsPage() {
             {types.data?.map((r) => (
               <button key={r.type} type="button" onClick={() => setType(r.type)}
                 className={`flex cursor-pointer items-center gap-2 rounded-lg border-0 px-3 py-2 text-left text-[13px] ${type === r.type ? 'bg-blue-50 font-semibold text-blue-700' : 'bg-transparent text-slate-700 hover:bg-slate-50'}`}>
-                <FileBarChart size={14} className="shrink-0" /> {r.title}
+                <FileBarChart size={14} className="shrink-0" /> {txServer(r.title)}
               </button>
             ))}
           </nav>
@@ -74,9 +74,9 @@ export default function ReportsPage() {
             <div className="flex flex-wrap items-center gap-2">
               <DatePicker.RangePicker value={range} format="DD.MM.YYYY" allowClear={false} onChange={(v) => v && v[0] && v[1] && setRange([v[0], v[1]])}
                 presets={[
-                  { label: 'Bugun', value: [dayjs(), dayjs()] },
-                  { label: '7 kun', value: [dayjs().subtract(6, 'day'), dayjs()] },
-                  { label: '30 kun', value: [dayjs().subtract(29, 'day'), dayjs()] },
+                  { label: tx("Bugun"), value: [dayjs(), dayjs()] },
+                  { label: tx("7 kun"), value: [dayjs().subtract(6, 'day'), dayjs()] },
+                  { label: tx("30 kun"), value: [dayjs().subtract(29, 'day'), dayjs()] },
                 ]} />
               <Input.Search allowClear placeholder={t('c.search')} onSearch={(v) => setSearch(v || undefined)} className="w-full sm:w-64" />
             </div>
@@ -87,21 +87,21 @@ export default function ReportsPage() {
                 <div className="grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
                   {r.summary.map((s) => (
                     <div key={s.label} className="sm-card p-4">
-                      <div className="text-xs text-slate-500">{s.label}</div>
+                      <div className="text-xs text-slate-500">{txServer(s.label)}</div>
                       <div className="tabular mt-1 text-xl font-semibold">{fmt(s.value, s.type)}</div>
                     </div>
                   ))}
                 </div>
-                <Card title={`${r.title} · ${dayjs(r.from).format('DD.MM.YYYY')} — ${dayjs(r.to).format('DD.MM.YYYY')}`} bodyClass="p-0">
+                <Card title={`${txServer(r.title)} · ${dayjs(r.from).format('DD.MM.YYYY')} — ${dayjs(r.to).format('DD.MM.YYYY')}`} bodyClass="p-0">
                   <Table
                     rowKey={(row) => JSON.stringify(row)}
                     size="middle"
                     loading={q.isFetching}
                     dataSource={r.rows}
                     scroll={{ x: 900 }}
-                    pagination={{ pageSize: 25, showSizeChanger: false, showTotal: (n) => `${n} ta qator` }}
+                    pagination={{ pageSize: 25, showSizeChanger: false, showTotal: (n) => tx("{n} ta qator", { n }) }}
                     columns={r.columns.map((c) => ({
-                      title: c.title,
+                      title: txServer(c.title),
                       dataIndex: c.key,
                       align: c.type === 'money' || c.type === 'number' || c.type === 'percent' ? ('right' as const) : undefined,
                       render: (v: any) => <span className={c.type === 'money' || c.type === 'number' ? 'tabular' : ''}>{fmt(v, c.type)}</span>,

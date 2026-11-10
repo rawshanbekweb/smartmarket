@@ -120,7 +120,7 @@ Testlar `DATABASE_URL` dagi baza nomini `smart_market_test` ga almashtiradi (yok
 | Production bootstrap (`setup:production`), zaxira nusxa skriptlari | ✅ Ishlaydi |
 | Shikoyatlar (QR, rate limit), imtiyozlar (faqat CHIEF tasdiqlaydi) | ✅ Ishlaydi |
 | Hisobotlar + CSV eksport | ✅ Ishlaydi |
-| UZ / RU interfeys | ✅ Asosiy navigatsiya, holatlar, KPI, kassa, QR sahifa. Ba'zi ichki sahifa matnlari hozircha faqat o'zbekcha |
+| UZ / RU interfeys | ✅ Barcha sahifalar, dialoglar, xato xabarlari, ogohlantirish sarlavhalari, hisobot ustunlari. Foydalanuvchi kiritgan matnlar va audit jurnali tavsiflari yozilgan tilida qoladi |
 | Kamera kuzatuvi | 🟡 DEMO provayder (simulyatsiya, aniq belgilangan) |
 | Kamera ko'rinishi | 🟡 Simulyatsiya qilingan kadr — jonli oqim emas |
 | To'lov: xodim joyida naqd yoki Click (chek raqami bilan) qabul qiladi; Click sverka; smena naqdini topshirish | ✅ Ishlaydi |

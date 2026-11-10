@@ -4,7 +4,7 @@ import { Alert, Button, Form, Input, Segmented } from 'antd';
 import { Lock, Store, User, ShieldCheck, Cctv, Wallet } from 'lucide-react';
 import { useQuery } from '@tanstack/react-query';
 import { useAuth } from '../lib/auth';
-import { useI18n } from '../lib/i18n';
+import { useI18n, tx } from '../lib/i18n';
 import { errorMessage, get } from '../lib/api';
 import { homeFor } from '../components/AppLayout';
 
@@ -58,18 +58,18 @@ export function LoginPage() {
         </div>
         <div className="max-w-lg">
           <h2 className="m-0 text-[34px] font-semibold leading-tight">
-            {lang === 'ru' ? 'Каждое занятое место — с подтверждённой оплатой.' : "Har bir band joy — tasdiqlangan to'lov bilan."}
+            {tx("Har bir band joy — tasdiqlangan to'lov bilan.")}
           </h2>
           <p className="mt-4 text-[15px] leading-relaxed text-slate-300">
             {lang === 'ru'
               ? 'Учёт торговых мест, кассовые платежи с чеками, видеонаблюдение за занятостью и контроль расхождений в одной системе.'
-              : "Savdo joylari hisobi, chekli kassa to'lovlari, kamera orqali bandlik nazorati va nomuvofiqliklarni aniqlash — yagona tizimda."}
+              : tx("Savdo joylari hisobi, chekli kassa to'lovlari, kamera orqali bandlik nazorati va nomuvofiqliklarni aniqlash — yagona tizimda.")}
           </p>
           <div className="mt-8 grid grid-cols-3 gap-3">
             {[
-              { i: <Wallet size={18} />, l: lang === 'ru' ? 'Касса и чеки' : 'Kassa va cheklar' },
-              { i: <Cctv size={18} />, l: lang === 'ru' ? 'Камеры' : 'Kameralar' },
-              { i: <ShieldCheck size={18} />, l: lang === 'ru' ? 'Аудит' : 'Audit' },
+              { i: <Wallet size={18} />, l: tx("Kassa va cheklar") },
+              { i: <Cctv size={18} />, l: tx("Kameralar") },
+              { i: <ShieldCheck size={18} />, l: tx("Audit") },
             ].map((x) => (
               <div key={x.l} className="rounded-xl border border-solid border-white/10 bg-white/5 p-3 text-[13px] text-slate-200">
                 <div className="mb-2 text-emerald-400">{x.i}</div>
@@ -114,7 +114,7 @@ export function LoginPage() {
                   </Button>
                 ))}
               </div>
-              <div className="mt-2 text-[11px] text-amber-700">Parol / Пароль: Demo@2026</div>
+              <div className="mt-2 text-[11px] text-amber-700">{t('login.password')}: Demo@2026</div>
             </div>
           )}
         </div>

@@ -4,7 +4,7 @@ import { Button, Input, Select, Table } from 'antd';
 import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import { Plus, Cctv, ListPlus } from 'lucide-react';
 import { get, type Paged } from '../lib/api';
-import { useI18n } from '../lib/i18n';
+import { useI18n, tx } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
 import { fmtAgo, fmtMoney } from '../lib/format';
 import { SPACE_STATUSES, type Space } from '../lib/types';
@@ -50,7 +50,7 @@ export default function SpacesPage() {
     <div>
       <PageHeader
         title={t('nav.spaces')}
-        subtitle={q.data ? `${q.data.total} ta joy topildi` : undefined}
+        subtitle={q.data ? tx("{n} ta joy topildi", { n: q.data.total }) : undefined}
         extra={
           manage && (
             <>
@@ -68,9 +68,9 @@ export default function SpacesPage() {
         <div className="flex flex-wrap gap-2 border-0 border-b border-solid border-slate-100 p-4">
           <Input.Search allowClear defaultValue={filters.search} placeholder={`${t('c.search')}: A-12`} onSearch={(v) => setFilter('search', v || undefined)} className="w-full sm:w-56" />
           <Select allowClear placeholder={t('c.row')} value={filters.rowId} onChange={(v) => setFilter('rowId', v)} className="w-36" options={rows.data?.map((r) => ({ value: r.id, label: r.name }))} />
-          <Select allowClear placeholder="Bandlik" value={filters.occupancy} onChange={(v) => setFilter('occupancy', v)} className="w-36" options={['FREE', 'OCCUPIED', 'UNKNOWN'].map((o) => ({ value: o, label: t(`occ.${o}`) }))} />
+          <Select allowClear placeholder={tx("Bandlik")} value={filters.occupancy} onChange={(v) => setFilter('occupancy', v)} className="w-36" options={['FREE', 'OCCUPIED', 'UNKNOWN'].map((o) => ({ value: o, label: t(`occ.${o}`) }))} />
           <Select allowClear placeholder={t('c.status')} value={filters.status} onChange={(v) => setFilter('status', v)} className="w-52" options={SPACE_STATUSES.map((s) => ({ value: s, label: t(`space.${s}`) }))} />
-          <Select allowClear placeholder="To'lov holati" value={filters.paymentState} onChange={(v) => setFilter('paymentState', v)} className="w-40" options={['PAID', 'UNPAID', 'EXEMPTED'].map((s) => ({ value: s, label: t(`pay.${s}`) }))} />
+          <Select allowClear placeholder={tx("To'lov holati")} value={filters.paymentState} onChange={(v) => setFilter('paymentState', v)} className="w-40" options={['PAID', 'UNPAID', 'EXEMPTED'].map((s) => ({ value: s, label: t(`pay.${s}`) }))} />
           {manage && (
             <Select value={filters.active} onChange={(v) => setFilter('active', v === 'true' ? undefined : v)} className="w-32" options={[{ value: 'true', label: t('c.active') }, { value: 'false', label: t('c.inactive') }, { value: 'all', label: t('c.all') }]} />
           )}
@@ -101,7 +101,7 @@ export default function SpacesPage() {
               { title: t('c.size'), key: 'w', render: (_, s) => `${s.widthMeters} m` },
               { title: t('c.tariff'), key: 't', align: 'right', render: (_, s) => <span className="tabular">{fmtMoney(s.tariff.amount)}</span> },
               { title: t('c.status'), key: 's', render: (_, s) => <SpaceStatusChip status={s.status} /> },
-              { title: "To'lov", key: 'p', render: (_, s) => <PaymentStateChip state={s.paymentState} /> },
+              { title: tx("To'lov"), key: 'p', render: (_, s) => <PaymentStateChip state={s.paymentState} /> },
               {
                 title: t('c.camera'),
                 key: 'c',

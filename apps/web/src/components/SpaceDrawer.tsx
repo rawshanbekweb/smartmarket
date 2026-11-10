@@ -3,7 +3,7 @@ import { useQuery } from '@tanstack/react-query';
 import { Link } from 'react-router-dom';
 import { ExternalLink } from 'lucide-react';
 import { get } from '../lib/api';
-import { useI18n } from '../lib/i18n';
+import { useI18n, tx } from '../lib/i18n';
 import { fmtDateTime, fmtMoney, fmtAgo } from '../lib/format';
 import type { Alert, Payment, Space } from '../lib/types';
 import { AlertStatusChip, CameraStatusChip, MethodLabel, PaymentStateChip, PaymentStatusChip, SpaceStatusChip, DemoTag } from './Status';
@@ -49,8 +49,8 @@ export function SpaceDrawer({ spaceId, onClose }: { spaceId: string | null; onCl
             <Field label={t('c.row')}>{s.row.name}</Field>
             <Field label={t('c.size')}>{s.widthMeters} m (uzunlik)</Field>
             <Field label={t('c.tariff')}>{fmtMoney(s.tariff.amount)}</Field>
-            <Field label="Bandlik">{t(`occ.${s.occupancyState}`)}</Field>
-            <Field label="To'lov holati">
+            <Field label={tx("Bandlik")}>{t(`occ.${s.occupancyState}`)}</Field>
+            <Field label={tx("To'lov holati")}>
               <PaymentStateChip state={s.paymentState} />
             </Field>
             <Field label={t('c.lastDetected')}>
@@ -69,7 +69,7 @@ export function SpaceDrawer({ spaceId, onClose }: { spaceId: string | null; onCl
             {s.validPayment && <Field label={t('c.validUntil')}>{fmtDateTime(s.validPayment.validUntil)}</Field>}
             {s.activeExemption && (
               <Field label={t('nav.exemptions')}>
-                {fmtDateTime(s.activeExemption.validUntil)} gacha — {s.activeExemption.reason}
+                {tx("{date} gacha", { date: fmtDateTime(s.activeExemption.validUntil) })} — {s.activeExemption.reason}
               </Field>
             )}
           </section>

@@ -3,7 +3,7 @@ import { App, Form, Input, InputNumber, Modal, Select } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { errorMessage, get, patch, post } from '../lib/api';
 import { useAuth } from '../lib/auth';
-import { useI18n } from '../lib/i18n';
+import { useI18n, tx } from '../lib/i18n';
 import { fmtMoney } from '../lib/format';
 import type { Space } from '../lib/types';
 
@@ -35,7 +35,7 @@ export function SpaceForm({ open, space, onClose }: { open: boolean; space?: Spa
   const save = useMutation({
     mutationFn: (v: Record<string, unknown>) => (space ? patch(`/spaces/${space.id}`, v) : post('/spaces', v)),
     onSuccess: () => {
-      message.success(space ? 'Joy yangilandi' : "Yangi joy qo'shildi");
+      message.success(space ? tx("Joy yangilandi") : tx("Yangi joy qo'shildi"));
       qc.invalidateQueries({ queryKey: ['spaces'] });
       qc.invalidateQueries({ queryKey: ['space'] });
       qc.invalidateQueries({ queryKey: ['dashboard'] });
@@ -58,16 +58,16 @@ export function SpaceForm({ open, space, onClose }: { open: boolean; space?: Spa
     >
       <Form form={form} layout="vertical" onFinish={(v) => save.mutate(v)} requiredMark="optional" className="mt-4">
         <div className="grid grid-cols-2 gap-x-3">
-          <Form.Item name="number" label="Joy raqami" rules={[{ required: true, max: 20 }]}>
+          <Form.Item name="number" label={tx("Joy raqami")} rules={[{ required: true, max: 20 }]}>
             <Input placeholder="A-26" />
           </Form.Item>
           <Form.Item name="rowId" label={t('c.row')} rules={[{ required: true }]}>
             <Select loading={rows.isLoading} options={rows.data?.map((r) => ({ value: r.id, label: r.name }))} />
           </Form.Item>
-          <Form.Item name="widthMeters" label="Uzunligi (metr, maydon emas)" rules={[{ required: true }]} tooltip="Savdo joyining old tomon uzunligi metrlarda. Kvadrat metr emas.">
-            <InputNumber min={0.1} max={100} step={0.5} suffix="m" className="w-full" />
+          <Form.Item name="widthMeters" label={tx("Uzunligi (metr, maydon emas)")} rules={[{ required: true }]} tooltip={tx("Savdo joyining old tomon uzunligi metrlarda. Kvadrat metr emas.")}>
+            <InputNumber min={0.1} max={100} step={0.5} suffix={tx("m")} className="w-full" />
           </Form.Item>
-          <Form.Item name="tariffId" label={t('c.tariff')} rules={[{ required: true }]} extra={space && !can('CHIEF') ? "Tarifni faqat rahbar o'zgartiradi" : undefined}>
+          <Form.Item name="tariffId" label={t('c.tariff')} rules={[{ required: true }]} extra={space && !can('CHIEF') ? tx("Tarifni faqat rahbar o'zgartiradi") : undefined}>
             <Select
               disabled={!!space && !can('CHIEF')}
               loading={settings.isLoading}

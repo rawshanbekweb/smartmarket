@@ -7,7 +7,7 @@ import {
   Grid3x3, Users2, SquareDashed, CircleCheck, CircleAlert, BellRing, Banknote, Cctv, RefreshCw, ArrowRight,
 } from 'lucide-react';
 import { get, type Paged } from '../lib/api';
-import { useI18n } from '../lib/i18n';
+import { useI18n, tx, txServer } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
 import { daysAgoKey, fmtAgo, fmtMoney, fmtNum, fmtTime, todayKey } from '../lib/format';
 import type { Alert, Camera, OccupancyRow, SpaceStatus } from '../lib/types';
@@ -81,7 +81,7 @@ function DistributionPanel({ d }: { d: Distribution }) {
   return (
     <div className="flex h-full flex-col">
       <div className="mb-4">
-        <div className="text-xs text-slate-500">Tasdiqlangan tushum</div>
+        <div className="text-xs text-slate-500">{tx("Tasdiqlangan tushum")}</div>
         <div className="tabular text-2xl font-semibold text-slate-900">{fmtMoney(d.confirmedRevenue)}</div>
       </div>
       <div className="flex flex-col gap-3.5">
@@ -106,7 +106,7 @@ function DistributionPanel({ d }: { d: Distribution }) {
 
 function AlertsPanel({ alerts }: { alerts: Alert[] }) {
   const { t, lang } = useI18n();
-  if (!alerts.length) return <EmptyState text="Faol hodisalar yo'q" />;
+  if (!alerts.length) return <EmptyState text={tx("Faol hodisalar yo'q")} />;
   return (
     <div className="-mx-1 flex flex-col">
       {alerts.map((a) => (
@@ -118,7 +118,7 @@ function AlertsPanel({ alerts }: { alerts: Alert[] }) {
               <span className="shrink-0 text-[11px] text-slate-400">{fmtAgo(a.detectedAt, lang)}</span>
             </span>
             <span className="block truncate text-xs text-slate-500">
-              {a.space ? `${a.space.number} · ${a.space.row.name}` : a.camera ? `${a.camera.code} · ${a.camera.name}` : a.title}
+              {a.space ? `${a.space.number} · ${a.space.row.name}` : a.camera ? `${a.camera.code} · ${a.camera.name}` : txServer(a.title)}
             </span>
             <span className="mt-1 flex flex-wrap gap-1">
               <AlertStatusChip status={a.status} />
@@ -231,7 +231,7 @@ export default function DashboardPage() {
             {(d) => <RevenueChart data={d.series} />}
           </QueryView>
         </Card>
-        <Card title={`${t('dash.distribution')} · ${range} kun`}>
+        <Card title={`${t('dash.distribution')} · ${t(`range.${range}`)}`}>
           <QueryView q={dist} rows={6}>
             {(d) => <DistributionPanel d={d} />}
           </QueryView>
@@ -257,10 +257,10 @@ export default function DashboardPage() {
             {(cameras.data ?? []).map((c) => (
               <Link key={c.id} to={`/cameras/${c.id}`} className="rounded-xl border border-solid border-slate-200 p-2.5 text-inherit no-underline transition-shadow hover:shadow-md">
                 {c.provider === 'DEMO' ? (
-                  <SimulatedPreview compact zones={zonesByCamera.get(c.code) ?? []} cameraStatus={c.status} label="DEMO simulyatsiya" />
+                  <SimulatedPreview compact zones={zonesByCamera.get(c.code) ?? []} cameraStatus={c.status} label={tx("DEMO simulyatsiya")} />
                 ) : (
                   <div className="flex items-center justify-center rounded-lg bg-slate-100 text-[11px] text-slate-500" style={{ aspectRatio: '16/9' }}>
-                    Jonli ko'rinish ulanmagan
+                    {tx("Jonli ko'rinish ulanmagan")}
                   </div>
                 )}
                 <div className="mt-2 flex items-center justify-between gap-2">
@@ -274,7 +274,7 @@ export default function DashboardPage() {
                   <span>{c.assignedSpaces} joy</span>
                   <span>{t('c.lastHeartbeat')}: {fmtTime(c.lastHeartbeatAt)}</span>
                 </div>
-                <div className="mt-0.5 text-[11px] text-slate-500">Monitoring: {c.monitoringEnabled ? 'yoqilgan' : "o'chirilgan"}</div>
+                <div className="mt-0.5 text-[11px] text-slate-500">{tx("Monitoring:")} {c.monitoringEnabled ? tx("yoqilgan") : tx("o'chirilgan")}</div>
               </Link>
             ))}
           </div>

@@ -1,4 +1,5 @@
 import axios, { AxiosError } from 'axios';
+import { tx, txServer } from './i18n';
 
 /** All calls go to the same origin (/api is proxied by Vite in dev and Nginx in prod). */
 export const api = axios.create({
@@ -12,15 +13,16 @@ export interface ApiErrorBody {
   error?: { code?: string; message?: string; details?: unknown };
 }
 
-export function errorMessage(err: unknown, fallback = "Xatolik yuz berdi"): string {
+export function errorMessage(err: unknown, fallback = tx("Xatolik yuz berdi")): string {
   const e = err as AxiosError<ApiErrorBody>;
   if (e?.response?.data?.error?.message) {
     const details = e.response.data.error.details as { fieldErrors?: Record<string, string[]> } | undefined;
     const field = details?.fieldErrors && Object.entries(details.fieldErrors)[0];
-    return field ? `${e.response.data.error.message}: ${field[0]} — ${field[1][0]}` : e.response.data.error.message;
+    const message = txServer(e.response.data.error.message);
+    return field ? `${message}: ${field[0]} — ${txServer(field[1][0])}` : message;
   }
-  if (e?.code === 'ECONNABORTED') return 'Server javob bermadi (timeout)';
-  if (e?.message === 'Network Error') return "Server bilan aloqa yo'q";
+  if (e?.code === 'ECONNABORTED') return tx("Server javob bermadi (timeout)");
+  if (e?.message === 'Network Error') return tx("Server bilan aloqa yo'q");
   return fallback;
 }
 

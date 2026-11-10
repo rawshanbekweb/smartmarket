@@ -4,7 +4,7 @@ import { App, Button, Form, Input, InputNumber, Modal, Select, Switch } from 'an
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus, Users } from 'lucide-react';
 import { errorMessage, get, patch, post, put } from '../lib/api';
-import { useI18n } from '../lib/i18n';
+import { useI18n, tx } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
 import { SPACE_STATUSES } from '../lib/types';
 import { PageHeader, QueryView, EmptyState } from '../components/common';
@@ -36,12 +36,12 @@ export default function RowsPage() {
 
   const save = useMutation({
     mutationFn: (v: any) => (editing === 'new' ? post('/rows', v) : patch(`/rows/${(editing as Row).id}`, v)),
-    onSuccess: () => { message.success('Saqlandi'); qc.invalidateQueries({ queryKey: ['rows'] }); qc.invalidateQueries({ queryKey: ['dashboard'] }); setEditing(null); },
+    onSuccess: () => { message.success(tx("Saqlandi")); qc.invalidateQueries({ queryKey: ['rows'] }); qc.invalidateQueries({ queryKey: ['dashboard'] }); setEditing(null); },
     onError: (e) => message.error(errorMessage(e)),
   });
   const assign = useMutation({
     mutationFn: (v: { cashierIds: string[] }) => put(`/rows/${cashierRow!.id}/cashiers`, v),
-    onSuccess: () => { message.success('Kassirlar biriktirildi'); qc.invalidateQueries({ queryKey: ['rows'] }); setCashierRow(null); },
+    onSuccess: () => { message.success(tx("Kassirlar biriktirildi")); qc.invalidateQueries({ queryKey: ['rows'] }); setCashierRow(null); },
     onError: (e) => message.error(errorMessage(e)),
   });
 
@@ -49,13 +49,13 @@ export default function RowsPage() {
     <div>
       <PageHeader
         title={t('nav.rows')}
-        subtitle="Qatorlar soni va tarkibi kod o'zgartirmasdan boshqariladi"
+        subtitle={tx("Qatorlar soni va tarkibi kod o'zgartirmasdan boshqariladi")}
         extra={<Button type="primary" icon={<Plus size={16} />} onClick={() => { form.resetFields(); setEditing('new'); }}>{t('c.add')}</Button>}
       />
       <QueryView q={q}>
         {(rows) =>
           rows.length === 0 ? (
-            <EmptyState text="Qatorlar hali yaratilmagan" />
+            <EmptyState text={tx("Qatorlar hali yaratilmagan")} />
           ) : (
             <div className="grid gap-4 md:grid-cols-2 xl:grid-cols-3">
               {rows.map((r) => {
@@ -65,7 +65,7 @@ export default function RowsPage() {
                     <div className="flex items-start justify-between">
                       <div>
                         <div className="flex items-center gap-2 text-base font-semibold">{r.name} <DemoTag show={r.isDemo} /> {!r.isActive && <Chip tone="neutral">{t('c.inactive')}</Chip>}</div>
-                        <div className="text-xs text-slate-500">Kod: {r.code} · {r.spaceCount} ta faol joy</div>
+                        <div className="text-xs text-slate-500">{tx("Kod:")} {r.code} · {tx("{n} ta faol joy", { n: r.spaceCount })}</div>
                       </div>
                       <div className="flex gap-1">
                         {can('CHIEF') && <Button size="small" icon={<Users size={13} />} onClick={() => { cform.setFieldsValue({ cashierIds: r.cashiers.map((c) => c.id) }); setCashierRow(r); }} />}
@@ -86,8 +86,8 @@ export default function RowsPage() {
                       ))}
                     </div>
                     <div className="mt-3 flex items-center justify-between border-0 border-t border-solid border-slate-100 pt-3 text-xs">
-                      <span className="text-slate-500">Kassir: {r.cashiers.map((c) => c.fullName).join(', ') || '—'}</span>
-                      <Link to={`/spaces?rowId=${r.id}`}>Joylar →</Link>
+                      <span className="text-slate-500">{tx("Kassir:")} {r.cashiers.map((c) => c.fullName).join(', ') || '—'}</span>
+                      <Link to={`/spaces?rowId=${r.id}`}>{tx("Joylar →")}</Link>
                     </div>
                   </div>
                 );
@@ -97,21 +97,21 @@ export default function RowsPage() {
         }
       </QueryView>
 
-      <Modal open={!!editing} title={editing === 'new' ? 'Yangi qator' : 'Qatorni tahrirlash'} onCancel={() => setEditing(null)} onOk={() => form.submit()} confirmLoading={save.isPending} okText={t('c.save')} destroyOnHidden>
+      <Modal open={!!editing} title={editing === 'new' ? tx("Yangi qator") : tx("Qatorni tahrirlash")} onCancel={() => setEditing(null)} onOk={() => form.submit()} confirmLoading={save.isPending} okText={t('c.save')} destroyOnHidden>
         <Form form={form} layout="vertical" className="mt-4" onFinish={(v) => save.mutate(v)}>
           <div className="grid grid-cols-3 gap-3">
-            <Form.Item name="code" label="Kod" rules={[{ required: true, max: 10 }]}><Input placeholder="G" /></Form.Item>
-            <Form.Item name="name" label="Nomi" className="col-span-2" rules={[{ required: true }]}><Input placeholder="G qator" /></Form.Item>
+            <Form.Item name="code" label={tx("Kod")} rules={[{ required: true, max: 10 }]}><Input placeholder="G" /></Form.Item>
+            <Form.Item name="name" label={tx("Nomi")} className="col-span-2" rules={[{ required: true }]}><Input placeholder={tx("G qator")} /></Form.Item>
           </div>
           <div className="grid grid-cols-2 gap-3">
-            <Form.Item name="sortOrder" label="Tartib raqami" initialValue={0}><InputNumber min={0} className="w-full" /></Form.Item>
+            <Form.Item name="sortOrder" label={tx("Tartib raqami")} initialValue={0}><InputNumber min={0} className="w-full" /></Form.Item>
             {editing !== 'new' && <Form.Item name="isActive" label={t('c.active')} valuePropName="checked"><Switch /></Form.Item>}
           </div>
         </Form>
       </Modal>
 
       <Modal open={!!cashierRow} title={`${cashierRow?.name}: kassirlar`} onCancel={() => setCashierRow(null)} onOk={() => cform.submit()} confirmLoading={assign.isPending} okText={t('c.save')}>
-        <p className="text-xs text-slate-500">Shikoyat kelganda kassir faqat qatorga bitta kassir biriktirilgan bo'lsa avtomatik bog'lanadi.</p>
+        <p className="text-xs text-slate-500">{tx("Shikoyat kelganda kassir faqat qatorga bitta kassir biriktirilgan bo'lsa avtomatik bog'lanadi.")}</p>
         <Form form={cform} onFinish={(v) => assign.mutate({ cashierIds: v.cashierIds ?? [] })}>
           <Form.Item name="cashierIds">
             <Select mode="multiple" options={users.data?.filter((u) => u.role === 'CASHIER' && u.isActive).map((u) => ({ value: u.id, label: u.fullName }))} />

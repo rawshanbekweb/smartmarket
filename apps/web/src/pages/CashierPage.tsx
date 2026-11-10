@@ -4,7 +4,7 @@ import { Alert as AntAlert, App, Button, Form, Input, InputNumber, Modal, Segmen
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Banknote, CheckCircle2, LockOpen, Lock, Printer, Search, Smartphone, Receipt as ReceiptIcon } from 'lucide-react';
 import { errorMessage, get, newIdempotencyKey, post, type Paged } from '../lib/api';
-import { useI18n } from '../lib/i18n';
+import { useI18n, tx } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
 import { fmtDateTime, fmtMoney, fmtTime } from '../lib/format';
 import type { Payment, Space } from '../lib/types';
@@ -75,7 +75,7 @@ export default function CashierPage() {
       if (v.action === 'close') {
         setCloseOpen(false);
         modal.success({ title: t('cash.shiftClosed'), content: `${t('pm.CASH')}: ${fmtMoney(d.cashAmount)} · ${t('pm.CLICK')}: ${fmtMoney(d.clickAmount)}. ${t('cash.handOver')}` });
-      } else message.success('Smena ochildi');
+      } else message.success(tx("Smena ochildi"));
       invalidate();
     },
     onError: (e) => message.error(errorMessage(e)),
@@ -112,12 +112,12 @@ export default function CashierPage() {
           <Field label={t('c.tariff')}>{s.tariff.name}</Field>
           {method === 'CLICK' && <Field label={t('col.clickRef')}><span className="font-mono">{clickRef}</span></Field>}
           <div className="mt-3 rounded-lg bg-green-50 p-3 text-center">
-            <div className="text-xs text-green-700">Qabul qilinadigan summa</div>
+            <div className="text-xs text-green-700">{tx("Qabul qilinadigan summa")}</div>
             <div className="tabular text-2xl font-bold text-green-800">{fmtMoney(s.tariff.amount)}</div>
           </div>
         </div>
       ),
-      okText: method === 'CASH' ? 'Naqd qabul qilindi' : t('cash.clickReceived'),
+      okText: method === 'CASH' ? tx("Naqd qabul qilindi") : t('cash.clickReceived'),
       cancelText: t('c.cancel'),
       onOk: () => pay.mutateAsync(s),
     });
@@ -128,7 +128,7 @@ export default function CashierPage() {
     <div className="flex flex-col gap-5">
       <PageHeader
         title={t('cash.title')}
-        subtitle={<span>{me?.user.fullName} · Biriktirilgan qatorlar: {summary.data?.assignedRows.map((r) => r.name).join(', ') || '—'}</span>}
+        subtitle={<span>{me?.user.fullName} · {tx("Biriktirilgan qatorlar:")} {summary.data?.assignedRows.map((r) => r.name).join(', ') || '—'}</span>}
         extra={
           shift ? (
             <Button icon={<Lock size={15} />} onClick={() => setCloseOpen(true)}>
@@ -146,10 +146,10 @@ export default function CashierPage() {
         <Skeleton active />
       ) : (
         <div className="grid grid-cols-2 gap-3 lg:grid-cols-4">
-          <KpiCard label={t('cash.cashToday')} value={<span className="text-[22px]">{fmtMoney(summary.data?.cashToday.amount)}</span>} icon={<Banknote size={17} />} tone="ok" hint={`${summary.data?.cashToday.count ?? 0} ta to'lov`} />
-          <KpiCard label={t('cash.shiftTotal')} value={<span className="text-[22px]">{fmtMoney(shift?.totalAmount ?? 0)}</span>} icon={<ReceiptIcon size={17} />} tone="info" hint={shift ? `${t('pm.CASH')} ${fmtMoney(shift.cashAmount)} · ${t('pm.CLICK')} ${fmtMoney(shift.clickAmount)}` : 'Smena yopiq'} />
-          <KpiCard label="Smena holati" value={shift ? 'Ochiq' : 'Yopiq'} icon={shift ? <LockOpen size={17} /> : <Lock size={17} />} tone={shift ? 'ok' : 'warn'} hint={shift ? fmtDateTime(shift.openedAt) : "To'lov uchun oching"} />
-          <KpiCard label="To'lanmagan band joylar" value={spaces.data?.items.filter((s) => s.status === 'OCCUPIED_UNPAID').length ?? 0} icon={<Search size={17} />} tone="bad" hint="Barcha qatorlar bo'yicha" />
+          <KpiCard label={t('cash.cashToday')} value={<span className="text-[22px]">{fmtMoney(summary.data?.cashToday.amount)}</span>} icon={<Banknote size={17} />} tone="ok" hint={tx("{n} ta to'lov", { n: summary.data?.cashToday.count ?? 0 })} />
+          <KpiCard label={t('cash.shiftTotal')} value={<span className="text-[22px]">{fmtMoney(shift?.totalAmount ?? 0)}</span>} icon={<ReceiptIcon size={17} />} tone="info" hint={shift ? `${t('pm.CASH')} ${fmtMoney(shift.cashAmount)} · ${t('pm.CLICK')} ${fmtMoney(shift.clickAmount)}` : tx("Smena yopiq")} />
+          <KpiCard label={tx("Smena holati")} value={shift ? tx("Ochiq") : tx("Yopiq")} icon={shift ? <LockOpen size={17} /> : <Lock size={17} />} tone={shift ? 'ok' : 'warn'} hint={shift ? fmtDateTime(shift.openedAt) : tx("To'lov uchun oching")} />
+          <KpiCard label={tx("To'lanmagan band joylar")} value={spaces.data?.items.filter((s) => s.status === 'OCCUPIED_UNPAID').length ?? 0} icon={<Search size={17} />} tone="bad" hint={tx("Barcha qatorlar bo'yicha")} />
         </div>
       )}
 
@@ -158,9 +158,9 @@ export default function CashierPage() {
       <div className="grid gap-5 xl:grid-cols-[1fr_400px]">
         <Card title={t('cash.selectSpace')} bodyClass="p-0">
           <div className="flex flex-wrap gap-2 border-0 border-b border-solid border-slate-100 p-3">
-            <Input allowClear autoFocus prefix={<Search size={15} className="text-slate-400" />} placeholder="Joy raqami: A-12" value={search} onChange={(e) => setSearch(e.target.value)} className="w-full sm:w-52" size="large" />
+            <Input allowClear autoFocus prefix={<Search size={15} className="text-slate-400" />} placeholder={tx("Joy raqami: A-12")} value={search} onChange={(e) => setSearch(e.target.value)} className="w-full sm:w-52" size="large" />
             <Select allowClear placeholder={t('c.row')} value={rowId} onChange={setRowId} className="w-36" size="large" options={rows.data?.map((r) => ({ value: r.id, label: `${r.name}${assignedIds.has(r.id) ? ' ★' : ''}` }))} />
-            <Segmented size="large" value={onlyUnpaid} onChange={(v) => setOnlyUnpaid(v as 'all' | 'unpaid')} options={[{ value: 'unpaid', label: "To'lanmagan" }, { value: 'all', label: t('c.all') }]} />
+            <Segmented size="large" value={onlyUnpaid} onChange={(v) => setOnlyUnpaid(v as 'all' | 'unpaid')} options={[{ value: 'unpaid', label: tx("To'lanmagan") }, { value: 'all', label: t('c.all') }]} />
           </div>
           <div className="grid max-h-[520px] grid-cols-2 gap-2 overflow-y-auto p-3 sm:grid-cols-3 lg:grid-cols-4 2xl:grid-cols-5">
             {spaces.isLoading && <Skeleton active />}
@@ -184,9 +184,9 @@ export default function CashierPage() {
         </Card>
 
         <div ref={payPanel} className="flex scroll-mt-20 flex-col gap-5">
-          <Card title="To'lov">
+          <Card title={tx("To'lov")}>
             {!selected ? (
-              <EmptyState text="Chap tomondan joyni tanlang" />
+              <EmptyState text={tx("Chap tomondan joyni tanlang")} />
             ) : (
               <div className="flex flex-col gap-3">
                 <div className="flex items-center justify-between">
@@ -204,7 +204,7 @@ export default function CashierPage() {
                   <div className="tabular text-3xl font-bold text-slate-900">{fmtMoney(selected.tariff.amount)}</div>
                 </div>
                 {selected.paymentState !== 'UNPAID' ? (
-                  <AntAlert type="success" showIcon message={selected.paymentState === 'PAID' ? t('cash.alreadyPaid') : 'Bu joy imtiyozli'} />
+                  <AntAlert type="success" showIcon message={selected.paymentState === 'PAID' ? t('cash.alreadyPaid') : tx("Bu joy imtiyozli")} />
                 ) : (
                   <>
                     <Segmented
@@ -240,7 +240,7 @@ export default function CashierPage() {
               </div>
             )}
           </Card>
-          <Card title="So'nggi tranzaksiyalarim">
+          <Card title={tx("So'nggi tranzaksiyalarim")}>
             {summary.data?.recent.slice(0, 5).map((p) => (
               <Link key={p.id} to={`/payments/${p.id}`} className="flex justify-between border-0 border-b border-solid border-slate-50 py-2 text-sm text-inherit no-underline last:border-0">
                 <span><span className="font-semibold">{p.space.number}</span> <span className="text-xs text-slate-500">{fmtTime(p.paidAt ?? p.createdAt)}</span></span>
@@ -250,7 +250,7 @@ export default function CashierPage() {
                 </span>
               </Link>
             ))}
-            {!summary.data?.recent.length && <EmptyState text="Bugun hali to'lov yo'q" />}
+            {!summary.data?.recent.length && <EmptyState text={tx("Bugun hali to'lov yo'q")} />}
           </Card>
         </div>
       </div>
@@ -259,18 +259,18 @@ export default function CashierPage() {
         <PaymentsTable pageSize={10} compact />
       </Card>
 
-      <Card title="Smenalar tarixi">
+      <Card title={tx("Smenalar tarixi")}>
         <Table rowKey="id" size="small" loading={shifts.isLoading} dataSource={shifts.data} pagination={{ pageSize: 7 }}
           columns={[
-            { title: 'Ochilgan', key: 'o', render: (_, s) => fmtDateTime(s.openedAt) },
-            { title: 'Yopilgan', key: 'c', render: (_, s) => (s.closedAt ? fmtDateTime(s.closedAt) : <span className="font-medium text-green-700">Ochiq</span>) },
-            { title: "To'lovlar", dataIndex: 'count', align: 'right' },
-            { title: 'Jami', key: 'a', align: 'right', render: (_, s) => <span className="tabular font-semibold">{fmtMoney(s.totalAmount)}</span> },
+            { title: tx("Ochilgan"), key: 'o', render: (_, s) => fmtDateTime(s.openedAt) },
+            { title: tx("Yopilgan"), key: 'c', render: (_, s) => (s.closedAt ? fmtDateTime(s.closedAt) : <span className="font-medium text-green-700">{tx("Ochiq")}</span>) },
+            { title: tx("To'lovlar"), dataIndex: 'count', align: 'right' },
+            { title: tx("Jami"), key: 'a', align: 'right', render: (_, s) => <span className="tabular font-semibold">{fmtMoney(s.totalAmount)}</span> },
             { title: t('cash.handoverCol'), key: 'h', render: (_, s) => (s.status === 'OPEN' ? '—' : s.receivedAt ? <span className="text-xs text-green-700">{t('col.received')}: {fmtMoney(s.receivedCash)}</span> : <span className="text-xs text-amber-700">{t('col.awaiting')}: {fmtMoney(s.declaredCash ?? 0)}</span>) },
           ]} />
       </Card>
 
-      <SimulatedNotice>Kassir to'lovni bekor qila olmaydi va imtiyoz bera olmaydi. Xato kiritilgan to'lov bo'yicha rahbarga murojaat qiling.</SimulatedNotice>
+      <SimulatedNotice>{tx("Kassir to'lovni bekor qila olmaydi va imtiyoz bera olmaydi. Xato kiritilgan to'lov bo'yicha rahbarga murojaat qiling.")}</SimulatedNotice>
 
       <Modal open={closeOpen} title={t('cash.closeShift')} okText={t('cash.closeShift')} onCancel={() => setCloseOpen(false)} onOk={() => closeForm.submit()} confirmLoading={shiftMut.isPending} destroyOnHidden>
         {shift && (
@@ -294,7 +294,7 @@ export default function CashierPage() {
           <div className="flex flex-col items-center gap-3">
             <Receipt r={receipt.r} />
             <div className="flex gap-2">
-              <Link to={`/receipts/${receipt.paymentId}/print`} target="_blank"><Button type="primary" icon={<Printer size={15} />}>Chop etish</Button></Link>
+              <Link to={`/receipts/${receipt.paymentId}/print`} target="_blank"><Button type="primary" icon={<Printer size={15} />}>{tx("Chop etish")}</Button></Link>
               <Button onClick={() => setReceipt(null)}>{t('c.close')}</Button>
             </div>
           </div>

@@ -4,7 +4,7 @@ import { useQuery, keepPreviousData } from '@tanstack/react-query';
 import type { Dayjs } from 'dayjs';
 import { Lock } from 'lucide-react';
 import { get, type Paged } from '../lib/api';
-import { useI18n } from '../lib/i18n';
+import { useI18n, tx } from '../lib/i18n';
 import { fmtDateTime } from '../lib/format';
 import { PageHeader, Card, ErrorState } from '../components/common';
 import { DemoTag } from '../components/Status';
@@ -38,12 +38,12 @@ export default function AuditPage() {
     <div>
       <PageHeader
         title={t('nav.audit')}
-        subtitle={<span className="inline-flex items-center gap-1.5"><Lock size={13} /> Faqat qo'shish mumkin: o'zgartirish va o'chirish ma'lumotlar bazasi darajasida bloklangan</span>}
+        subtitle={<span className="inline-flex items-center gap-1.5"><Lock size={13} /> {tx("Faqat qo'shish mumkin: o'zgartirish va o'chirish ma'lumotlar bazasi darajasida bloklangan")}</span>}
       />
       <Card bodyClass="p-0">
         <div className="flex flex-wrap gap-2 border-0 border-b border-solid border-slate-100 p-4">
           <Input.Search allowClear placeholder={t('c.search')} onSearch={(v) => { setSearch(v || undefined); setPage(1); }} className="w-full sm:w-64" />
-          <Select allowClear showSearch placeholder="Amal" value={action} onChange={(v) => { setAction(v); setPage(1); }} className="w-64" options={q.data?.actions.map((a) => ({ value: a, label: a }))} />
+          <Select allowClear showSearch placeholder={tx("Amal")} value={action} onChange={(v) => { setAction(v); setPage(1); }} className="w-64" options={q.data?.actions.map((a) => ({ value: a, label: a }))} />
           <DatePicker.RangePicker format="DD.MM.YYYY" onChange={(v) => { setRange(v && v[0] && v[1] ? [v[0], v[1]] : null); setPage(1); }} />
         </div>
         {q.isError ? <ErrorState error={q.error} onRetry={() => q.refetch()} /> : (
@@ -53,7 +53,7 @@ export default function AuditPage() {
             loading={q.isFetching && !q.data}
             dataSource={q.data?.items}
             scroll={{ x: 1000 }}
-            pagination={{ current: page, pageSize: 30, total: q.data?.total, onChange: setPage, showSizeChanger: false, showTotal: (n) => `${n} ta yozuv` }}
+            pagination={{ current: page, pageSize: 30, total: q.data?.total, onChange: setPage, showSizeChanger: false, showTotal: (n) => tx("{n} ta yozuv", { n }) }}
             expandable={{
               rowExpandable: (r) => !!(r.before || r.after),
               expandedRowRender: (r) => (
@@ -66,10 +66,10 @@ export default function AuditPage() {
             columns={[
               { title: '#', dataIndex: 'id', width: 70, render: (v) => <span className="font-mono text-xs text-slate-400">{v}</span> },
               { title: t('c.time'), key: 'd', render: (_, r) => <span className="whitespace-nowrap">{fmtDateTime(r.createdAt)}</span> },
-              { title: 'Foydalanuvchi', key: 'u', render: (_, r) => (r.actor ? <span>{r.actor.fullName} <span className="text-xs text-slate-400">@{r.actor.username}</span></span> : <span className="text-slate-500">{r.actorRole ?? 'TIZIM'}</span>) },
-              { title: 'Amal', key: 'a', render: (_, r) => <span className="flex items-center gap-1"><Tag color={actionColor(r.action)} className="font-mono text-[11px]">{r.action}</Tag><DemoTag show={r.isDemo} /></span> },
-              { title: 'Obyekt', key: 'e', render: (_, r) => <span className="text-xs">{r.entityType}{r.entityId && <span className="block font-mono text-[10px] text-slate-400">{r.entityId.slice(0, 14)}</span>}</span> },
-              { title: 'Tavsif', dataIndex: 'summary', render: (v) => <span className="text-sm">{v ?? '—'}</span> },
+              { title: tx("Foydalanuvchi"), key: 'u', render: (_, r) => (r.actor ? <span>{r.actor.fullName} <span className="text-xs text-slate-400">@{r.actor.username}</span></span> : <span className="text-slate-500">{r.actorRole ?? tx("TIZIM")}</span>) },
+              { title: tx("Amal"), key: 'a', render: (_, r) => <span className="flex items-center gap-1"><Tag color={actionColor(r.action)} className="font-mono text-[11px]">{r.action}</Tag><DemoTag show={r.isDemo} /></span> },
+              { title: tx("Obyekt"), key: 'e', render: (_, r) => <span className="text-xs">{r.entityType}{r.entityId && <span className="block font-mono text-[10px] text-slate-400">{r.entityId.slice(0, 14)}</span>}</span> },
+              { title: tx("Tavsif"), dataIndex: 'summary', render: (v) => <span className="text-sm">{v ?? '—'}</span> },
               { title: 'IP', dataIndex: 'ip', render: (v) => <span className="font-mono text-[11px] text-slate-500">{v ?? '—'}</span> },
             ]}
           />

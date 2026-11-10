@@ -3,7 +3,7 @@ import { App, Button, Form, Input, Modal, Select, Switch, Table } from 'antd';
 import { useMutation, useQuery, useQueryClient } from '@tanstack/react-query';
 import { Plus } from 'lucide-react';
 import { errorMessage, get, patch, post } from '../lib/api';
-import { useI18n } from '../lib/i18n';
+import { useI18n, tx } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
 import { fmtDateTime } from '../lib/format';
 import { PageHeader, Card, ErrorState } from '../components/common';
@@ -39,7 +39,7 @@ export default function UsersPage() {
       delete body.username;
       return patch(`/users/${(editing as User).id}`, body);
     },
-    onSuccess: () => { message.success('Saqlandi'); setEditing(null); qc.invalidateQueries({ queryKey: ['users'] }); },
+    onSuccess: () => { message.success(tx("Saqlandi")); setEditing(null); qc.invalidateQueries({ queryKey: ['users'] }); },
     onError: (e) => message.error(errorMessage(e)),
   });
   const unlock = useMutation({
@@ -54,7 +54,7 @@ export default function UsersPage() {
     <div>
       <PageHeader
         title={t('nav.users')}
-        subtitle="Boshqaruv foydalanuvchilarini faqat rahbar yaratadi. O'zini ro'yxatdan o'tkazish yo'q."
+        subtitle={tx("Boshqaruv foydalanuvchilarini faqat rahbar yaratadi. O'zini ro'yxatdan o'tkazish yo'q.")}
         extra={<Button type="primary" icon={<Plus size={16} />} onClick={() => { form.resetFields(); form.setFieldsValue({ role: 'CASHIER' }); setEditing('new'); }}>{t('c.add')}</Button>}
       />
       <Card bodyClass="p-0">
@@ -66,10 +66,10 @@ export default function UsersPage() {
             pagination={false}
             scroll={{ x: 800 }}
             columns={[
-              { title: 'F.I.Sh.', key: 'n', render: (_, u) => <span className="flex items-center gap-2 font-medium">{u.fullName} <DemoTag show={u.isDemo} /></span> },
-              { title: 'Login', dataIndex: 'username', render: (v) => <span className="font-mono text-xs">{v}</span> },
-              { title: 'Rol', key: 'r', render: (_, u) => <Chip tone={u.role === 'CHIEF' ? 'violet' : u.role === 'MARKET_ADMIN' ? 'info' : 'neutral'} dot={false}>{t(`role.${u.role}`)}</Chip> },
-              { title: 'Telefon', dataIndex: 'phone', render: (v) => v ?? '—' },
+              { title: tx("F.I.Sh."), key: 'n', render: (_, u) => <span className="flex items-center gap-2 font-medium">{u.fullName} <DemoTag show={u.isDemo} /></span> },
+              { title: tx("Login"), dataIndex: 'username', render: (v) => <span className="font-mono text-xs">{v}</span> },
+              { title: tx("Rol"), key: 'r', render: (_, u) => <Chip tone={u.role === 'CHIEF' ? 'violet' : u.role === 'MARKET_ADMIN' ? 'info' : 'neutral'} dot={false}>{t(`role.${u.role}`)}</Chip> },
+              { title: tx("Telefon"), dataIndex: 'phone', render: (v) => v ?? '—' },
               {
                 title: t('c.status'),
                 key: 's',
@@ -81,7 +81,7 @@ export default function UsersPage() {
                   </span>
                 ),
               },
-              { title: 'Oxirgi kirish', key: 'l', render: (_, u) => fmtDateTime(u.lastLoginAt) },
+              { title: tx("Oxirgi kirish"), key: 'l', render: (_, u) => fmtDateTime(u.lastLoginAt) },
               {
                 title: '',
                 key: 'a',
@@ -96,15 +96,15 @@ export default function UsersPage() {
           />
         )}
       </Card>
-      <Modal open={!!editing} title={isNew ? "Foydalanuvchi qo'shish" : 'Foydalanuvchini tahrirlash'} onCancel={() => setEditing(null)} onOk={() => form.submit()} confirmLoading={save.isPending} okText={t('c.save')} destroyOnHidden>
+      <Modal open={!!editing} title={isNew ? tx("Foydalanuvchi qo'shish") : tx("Foydalanuvchini tahrirlash")} onCancel={() => setEditing(null)} onOk={() => form.submit()} confirmLoading={save.isPending} okText={t('c.save')} destroyOnHidden>
         <Form form={form} layout="vertical" className="mt-4" onFinish={(v) => save.mutate(v)}>
-          <Form.Item name="fullName" label="F.I.Sh." rules={[{ required: true, min: 3 }]}><Input /></Form.Item>
+          <Form.Item name="fullName" label={tx("F.I.Sh.")} rules={[{ required: true, min: 3 }]}><Input /></Form.Item>
           <div className="grid grid-cols-2 gap-x-3">
-            <Form.Item name="username" label="Login" rules={[{ required: isNew, pattern: /^[a-z0-9._-]{3,32}$/, message: '3-32 ta kichik lotin harf/raqam' }]}><Input disabled={!isNew} /></Form.Item>
-            <Form.Item name="role" label="Rol" rules={[{ required: true }]}>
+            <Form.Item name="username" label={tx("Login")} rules={[{ required: isNew, pattern: /^[a-z0-9._-]{3,32}$/, message: tx("3-32 ta kichik lotin harf/raqam") }]}><Input disabled={!isNew} /></Form.Item>
+            <Form.Item name="role" label={tx("Rol")} rules={[{ required: true }]}>
               <Select disabled={!isNew && (editing as User)?.id === me?.user.id} options={['CHIEF', 'MARKET_ADMIN', 'CASHIER'].map((r) => ({ value: r, label: t(`role.${r}`) }))} />
             </Form.Item>
-            <Form.Item name="phone" label="Telefon"><Input placeholder="+998 90 123 45 67" /></Form.Item>
+            <Form.Item name="phone" label={tx("Telefon")}><Input placeholder="+998 90 123 45 67" /></Form.Item>
             {!isNew && <Form.Item name="isActive" label={t('c.active')} valuePropName="checked"><Switch disabled={(editing as User)?.id === me?.user.id} /></Form.Item>}
           </div>
           <Form.Item

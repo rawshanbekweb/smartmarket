@@ -1,5 +1,5 @@
 import { useSearchParams } from 'react-router-dom';
-import { useI18n } from '../lib/i18n';
+import { useI18n, tx } from '../lib/i18n';
 import { useAuth } from '../lib/auth';
 import { PageHeader, Card } from '../components/common';
 import { PaymentsTable } from '../components/PaymentsTable';
@@ -13,7 +13,7 @@ export default function PaymentsPage() {
     <div className="flex flex-col gap-4">
       <PageHeader
         title={t('nav.payments')}
-        subtitle={can('CASHIER') ? "Faqat siz qabul qilgan to'lovlar ko'rsatiladi" : "Barcha to'lovlar. Asl yozuvlar hech qachon o'chirilmaydi."}
+        subtitle={can('CASHIER') ? tx("Faqat siz qabul qilgan to'lovlar ko'rsatiladi") : tx("Barcha to'lovlar. Asl yozuvlar hech qachon o'chirilmaydi.")}
         extra={
           <div className="flex flex-wrap gap-1.5">
             <Chip tone="ok">{t('pm.CASH')}</Chip>

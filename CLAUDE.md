@@ -23,4 +23,4 @@ npm workspaces monorepo: `apps/api` (Express + Prisma + PostgreSQL), `apps/web` 
 - Demo/simulated things must be labelled (`isDemo`, `isSimulated`, `DEMO_SIMULATOR`, UI `DemoTag`/`SimulatedNotice`). Never present simulated camera previews or payments as real.
 - Money: integer UZS. Market time: UTC+5 (`lib/time.ts`).
 - `AuditLog` is append-only (DB trigger). Add an `audit(...)` call for every important mutation.
-- UI strings: add UZ/RU pairs to `apps/web/src/lib/i18n.tsx`.
+- UI strings: never hard-code text in components. Use `t('key')` (pairs in `D`) or `tx("O'zbekcha matn", { n })` (Russian in `P`, the Uzbek phrase is the key) — both live in `apps/web/src/lib/i18n.tsx`. Text coming from the API (errors, alert titles, report columns, setting descriptions) is shown through `txServer(...)`; add its Russian to `P`, or to `PATTERNS` when it carries values.

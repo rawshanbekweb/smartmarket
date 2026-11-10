@@ -1,5 +1,6 @@
 import { SPACE_STATUS_STYLE } from './Status';
 import type { SpaceStatus } from '../lib/types';
+import { tx } from '../lib/i18n';
 
 /**
  * Clearly-labelled SIMULATED camera frame. It draws the configured zones and
@@ -8,7 +9,7 @@ import type { SpaceStatus } from '../lib/types';
 export function SimulatedPreview({
   zones,
   cameraStatus,
-  label = 'DEMO SIMULYATSIYA — jonli oqim emas',
+  label = tx("DEMO SIMULYATSIYA — jonli oqim emas"),
   compact,
 }: {
   zones: { key: string; label: string; status: SpaceStatus }[];
@@ -49,7 +50,7 @@ export function SimulatedPreview({
       <div className="absolute left-2 top-2 rounded bg-amber-400 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-wide text-amber-950">{label}</div>
       {offline && (
         <div className="absolute inset-0 flex items-center justify-center">
-          <span className="rounded-md bg-red-600/90 px-2 py-1 text-xs font-semibold text-white">Signal yo'q</span>
+          <span className="rounded-md bg-red-600/90 px-2 py-1 text-xs font-semibold text-white">{tx("Signal yo'q")}</span>
         </div>
       )}
     </div>

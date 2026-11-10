@@ -2,7 +2,7 @@ import { Bar, BarChart, CartesianGrid, ResponsiveContainer, Tooltip, XAxis, YAxi
 import dayjs from 'dayjs';
 import { colors } from '../theme';
 import { fmtCompact, fmtMoney } from '../lib/format';
-import { useI18n } from '../lib/i18n';
+import { useI18n, tx } from '../lib/i18n';
 
 export interface RevenuePoint {
   date: string;
@@ -31,7 +31,7 @@ function RevenueTooltip({ active, payload, label }: any) {
         <span className="font-semibold text-slate-700">{t('chart.total')}</span>
         <span className="tabular font-semibold text-slate-900">{fmtMoney(p.total)}</span>
       </div>
-      <div className="text-slate-400">{p.count} ta to'lov</div>
+      <div className="text-slate-400">{tx("{n} ta to'lov", { n: p.count })}</div>
     </div>
   );
 }

@@ -6,6 +6,7 @@ import { Printer } from 'lucide-react';
 import { get } from '../lib/api';
 import { Receipt, type ReceiptData } from '../components/Receipt';
 import { QueryView } from '../components/common';
+import { tx } from '../lib/i18n';
 
 export default function ReceiptPrintPage() {
   const { paymentId } = useParams();
@@ -20,10 +21,10 @@ export default function ReceiptPrintPage() {
           p.receipt ? (
             <div className="flex flex-col items-center gap-4">
               <Receipt r={p.receipt} cancelled={p.status === 'CANCELLED'} />
-              <Button className="no-print" icon={<Printer size={15} />} onClick={() => window.print()}>Chop etish</Button>
+              <Button className="no-print" icon={<Printer size={15} />} onClick={() => window.print()}>{tx("Chop etish")}</Button>
             </div>
           ) : (
-            <div className="text-center text-slate-500">Chek mavjud emas</div>
+            <div className="text-center text-slate-500">{tx("Chek mavjud emas")}</div>
           )
         }
       </QueryView>

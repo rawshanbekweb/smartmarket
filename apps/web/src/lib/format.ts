@@ -1,6 +1,7 @@
 import dayjs from 'dayjs';
 import utc from 'dayjs/plugin/utc';
 import relativeTime from 'dayjs/plugin/relativeTime';
+import { tx } from './i18n';
 
 dayjs.extend(utc);
 dayjs.extend(relativeTime);
@@ -10,10 +11,10 @@ const OFFSET = 300;
 export const marketTime = (d: string | Date | null | undefined) => (d ? dayjs(d).utcOffset(OFFSET) : null);
 
 export const fmtMoney = (n: number | null | undefined) =>
-  `${new Intl.NumberFormat('ru-RU').format(Math.round(n ?? 0)).replace(/[\u00a0\u202f]/g, ' ')} so'm`;
+  `${new Intl.NumberFormat('ru-RU').format(Math.round(n ?? 0)).replace(/[\u00a0\u202f]/g, ' ')} ${tx("so'm")}`;
 export const fmtNum = (n: number | null | undefined) => new Intl.NumberFormat('ru-RU').format(n ?? 0).replace(/[\u00a0\u202f]/g, ' ');
 export const fmtCompact = (n: number) =>
-  n >= 1_000_000 ? `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)} mln` : n >= 1000 ? `${Math.round(n / 1000)} ming` : String(n);
+  n >= 1_000_000 ? `${(n / 1_000_000).toFixed(n >= 10_000_000 ? 0 : 1)} ${tx("mln")}` : n >= 1000 ? `${Math.round(n / 1000)} ${tx("ming")}` : String(n);
 
 export const fmtDateTime = (d: string | Date | null | undefined) => marketTime(d)?.format('DD.MM.YYYY HH:mm') ?? '—';
 export const fmtDate = (d: string | Date | null | undefined) => marketTime(d)?.format('DD.MM.YYYY') ?? '—';

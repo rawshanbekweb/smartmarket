@@ -4,7 +4,7 @@ import { Alert, Button, Form, Input, Result, Segmented, Skeleton } from 'antd';
 import { useMutation, useQuery } from '@tanstack/react-query';
 import { CheckCircle2, XCircle, BadgePercent, Store, MessageSquareWarning, ReceiptText } from 'lucide-react';
 import { errorMessage, get, post } from '../lib/api';
-import { useI18n } from '../lib/i18n';
+import { useI18n, tx } from '../lib/i18n';
 import { fmtDateTime, fmtMoney } from '../lib/format';
 
 interface SpaceInfo {
@@ -30,9 +30,9 @@ interface ReceiptInfo {
 
 const L = {
   uz: {
-    paid: "To'langan", unpaid: "To'lov topilmadi", exempt: 'Imtiyoz amalda', until: 'Amal qiladi', receipt: 'Chek', complaint: "Naqd to'ladim, lekin chek olmadim",
-    desc: 'Qisqacha izoh (ixtiyoriy)', phone: 'Telefon (ixtiyoriy)', send: 'Shikoyat yuborish', sent: 'Shikoyatingiz qabul qilindi', ref: 'Murojaat raqami',
-    sentHint: "Bozor ma'muriyati xabardor qilindi va tekshiradi.", tariff: 'Tarif', notFound: 'QR kod yaroqsiz yoki joy topilmadi', receiptOk: 'Chek haqiqiy', receiptCancelled: 'Bu chek bekor qilingan',
+    paid: "To'langan", unpaid: "To'lov topilmadi", exempt: "Imtiyoz amalda", until: "Amal qiladi", receipt: "Chek", complaint: "Naqd to'ladim, lekin chek olmadim",
+    desc: "Qisqacha izoh (ixtiyoriy)", phone: "Telefon (ixtiyoriy)", send: "Shikoyat yuborish", sent: "Shikoyatingiz qabul qilindi", ref: "Murojaat raqami",
+    sentHint: "Bozor ma'muriyati xabardor qilindi va tekshiradi.", tariff: "Tarif", notFound: "QR kod yaroqsiz yoki joy topilmadi", receiptOk: "Chek haqiqiy", receiptCancelled: "Bu chek bekor qilingan",
   },
   ru: {
     paid: 'Оплачено', unpaid: 'Оплата не найдена', exempt: 'Действует льгота', until: 'Действует до', receipt: 'Чек', complaint: 'Оплатил наличными, но не получил чек',
@@ -73,9 +73,9 @@ function ReceiptVerify({ token }: { token: string }) {
           </div>
           <div className="mt-3 flex flex-col gap-1 text-sm">
             <div className="flex justify-between"><span className="text-slate-500">{l.receipt}</span><span className="font-mono">{q.data.receiptNumber}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Joy / Место</span><span className="font-semibold">{q.data.spaceNumber}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Summa</span><span>{fmtMoney(q.data.amount)}</span></div>
-            <div className="flex justify-between"><span className="text-slate-500">Sana</span><span>{fmtDateTime(q.data.issuedAt)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">{tx("Joy")}</span><span className="font-semibold">{q.data.spaceNumber}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">{tx("Summa")}</span><span>{fmtMoney(q.data.amount)}</span></div>
+            <div className="flex justify-between"><span className="text-slate-500">{tx("Sana")}</span><span>{fmtDateTime(q.data.issuedAt)}</span></div>
             {q.data.validUntil && <div className="flex justify-between"><span className="text-slate-500">{l.until}</span><span>{fmtDateTime(q.data.validUntil)}</span></div>}
           </div>
         </div>
@@ -115,7 +115,7 @@ function SpacePage({ token }: { token: string }) {
               {d.payment && (
                 <>
                   <div className="flex justify-between"><span className="text-slate-500">{l.until}</span><span className="font-semibold">{fmtDateTime(d.payment.validUntil)}</span></div>
-                  <div className="flex justify-between"><span className="text-slate-500">Summa</span><span>{fmtMoney(d.payment.amount)}</span></div>
+                  <div className="flex justify-between"><span className="text-slate-500">{tx("Summa")}</span><span>{fmtMoney(d.payment.amount)}</span></div>
                   {d.payment.receiptNumberMasked && <div className="flex justify-between"><span className="text-slate-500">{l.receipt}</span><span className="font-mono">{d.payment.receiptNumberMasked}</span></div>}
                 </>
               )}

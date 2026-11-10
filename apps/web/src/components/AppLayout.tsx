@@ -8,7 +8,7 @@ import {
 } from 'lucide-react';
 import { ChangePasswordModal } from './ChangePassword';
 import { useAuth, type Role } from '../lib/auth';
-import { useI18n } from '../lib/i18n';
+import { useI18n, txServer } from '../lib/i18n';
 import { get, post } from '../lib/api';
 import { fmtAgo, marketTime } from '../lib/format';
 import { useRealtime } from '../lib/realtime';
@@ -104,8 +104,8 @@ function Notifications() {
           >
             <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.readAt ? 'bg-transparent' : 'bg-blue-600'}`} />
             <span className="min-w-0">
-              <span className="block truncate text-[13px] font-medium text-slate-800">{n.title}</span>
-              {n.body && <span className="block truncate text-xs text-slate-500">{n.body}</span>}
+              <span className="block truncate text-[13px] font-medium text-slate-800">{txServer(n.title)}</span>
+              {n.body && <span className="block truncate text-xs text-slate-500">{txServer(n.body)}</span>}
               <span className="block text-[11px] text-slate-400">{fmtAgo(n.createdAt, lang)}</span>
             </span>
           </button>
@@ -192,7 +192,7 @@ export function AppLayout() {
           <div className="hidden min-w-0 flex-col leading-tight md:flex">
             <span className="truncate text-[14px] font-semibold text-slate-900">{me.market?.name ?? 'SMART MARKET'}</span>
             <span className="flex items-center gap-1 text-xs text-slate-500">
-              <CalendarDays size={12} /> {marketTime(new Date())?.format('DD.MM.YYYY, dddd')}
+              <CalendarDays size={12} /> <span className="first-letter:uppercase">{marketTime(new Date())?.format('DD.MM.YYYY, dddd')}</span>
             </span>
           </div>
           <div className="mx-auto w-full max-w-md">
